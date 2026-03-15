@@ -4,6 +4,7 @@ const requireAuth = require("../middleware/requireAuth");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const User = require("../models/User");
+const { emitToUser, emitToConversation } = require("../socket");
 
 const router = express.Router();
 const ONLINE_WINDOW_MS = 15000;
@@ -20,6 +21,27 @@ function isOnline(lastSeenAt, now) {
   return now.getTime() - new Date(lastSeenAt).getTime() <= ONLINE_WINDOW_MS;
 }
 
+function buildConversationSummary(conversation, userId, now) {
+  const other = conversation.participants.find(
+    (participant) => participant._id.toString() !== userId
+  );
+
+  return {
+    _id: conversation._id,
+    lastMessageText: conversation.lastMessageText || "",
+    lastMessageAt: conversation.lastMessageAt || conversation.updatedAt,
+    otherUser: other
+      ? {
+          _id: other._id,
+          userName: other.userName,
+          emailAddress: other.emailAddress,
+          lastSeenAt: other.lastSeenAt || null,
+          isOnline: isOnline(other.lastSeenAt, now),
+        }
+      : null,
+  };
+}
+
 router.get("/conversations", requireAuth, async (req, res) => {
   try {
     const userId = req.auth.userId;
@@ -31,24 +53,7 @@ router.get("/conversations", requireAuth, async (req, res) => {
       .lean();
 
     const data = conversations.map((conversation) => {
-      const other = conversation.participants.find(
-        (participant) => participant._id.toString() !== userId
-      );
-
-      return {
-        _id: conversation._id,
-        lastMessageText: conversation.lastMessageText || "",
-        lastMessageAt: conversation.lastMessageAt || conversation.updatedAt,
-        otherUser: other
-          ? {
-              _id: other._id,
-              userName: other.userName,
-              emailAddress: other.emailAddress,
-              lastSeenAt: other.lastSeenAt || null,
-              isOnline: isOnline(other.lastSeenAt, now),
-            }
-          : null,
-      };
+      return buildConversationSummary(conversation, userId, now);
     });
 
     return res.json({ conversations: data, onlineWindowMs: ONLINE_WINDOW_MS });
@@ -102,6 +107,18 @@ router.get("/conversations/with/:otherUserId", requireAuth, async (req, res) => 
       conversation = await Conversation.findById(conversation._id)
         .populate("participants", "userName emailAddress lastSeenAt")
         .lean();
+    }
+
+    try {
+      const now = new Date();
+      const participantIds = conversation.participants.map((participant) => participant._id);
+      participantIds.forEach((participantId) => {
+        emitToUser(participantId, "chat:conversation:update", {
+          conversation: buildConversationSummary(conversation, String(participantId), now),
+        });
+      });
+    } catch (_error) {
+      // Socket server might not be initialized in tests.
     }
 
     return res.json({ conversation });
@@ -189,6 +206,33 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
     conversation.lastMessageText = body;
     conversation.lastMessageAt = message.createdAt;
     await conversation.save();
+
+    try {
+      const populated = await Conversation.findById(conversation._id)
+        .populate("participants", "userName emailAddress lastSeenAt")
+        .lean();
+      const now = new Date();
+      const messagePayload = {
+        _id: message._id,
+        body: message.body,
+        senderId: message.sender,
+        createdAt: message.createdAt,
+        conversationId: conversation._id,
+      };
+
+      emitToConversation(conversation._id, "chat:message", { message: messagePayload });
+
+      if (populated) {
+        const participantIds = populated.participants.map((participant) => participant._id);
+        participantIds.forEach((participantId) => {
+          emitToUser(participantId, "chat:conversation:update", {
+            conversation: buildConversationSummary(populated, String(participantId), now),
+          });
+        });
+      }
+    } catch (_error) {
+      // Socket server might not be initialized in tests.
+    }
 
     return res.status(201).json({
       message: {

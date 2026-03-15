@@ -1,16 +1,19 @@
 const API_BASE = window.location.origin;
 const TOKEN_KEY = "careclickToken";
 const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
+const PRESENCE_PING_MS = 10000;
 const token = localStorage.getItem(TOKEN_KEY);
 
 let currentUserId = null;
-let conversationPollId = null;
-let messagePollId = null;
 let activeConversationId = null;
 let lastMessageCursor = null;
 const conversationCache = new Map();
 let allUsers = [];
 let searchTerm = "";
+let socket = null;
+let presencePingId = null;
+let activeConversationRoom = null;
+let activeMessageIds = new Set();
 
 if (!token) {
     window.location.href = "Login.html";
@@ -41,6 +44,10 @@ async function apiRequest(path, options = {}) {
 
     if (response.status === 401) {
         localStorage.removeItem(TOKEN_KEY);
+        if (socket) {
+            socket.disconnect();
+            socket = null;
+        }
         window.location.href = "Login.html";
         throw new Error("Session expired");
     }
@@ -109,12 +116,14 @@ function normalizeConversation(raw) {
     };
 }
 
-function renderConversations(conversations = []) {
+function renderConversations(conversations = [], { replaceCache = true } = {}) {
     const listEl = document.getElementById("messages-list");
     const emptyEl = document.getElementById("messages-empty");
     if (!listEl || !emptyEl) return;
 
-    conversationCache.clear();
+    if (replaceCache) {
+        conversationCache.clear();
+    }
     listEl.innerHTML = "";
 
     if (!conversations.length) {
@@ -125,7 +134,9 @@ function renderConversations(conversations = []) {
     emptyEl.classList.add("hidden");
 
     conversations.forEach((conversation) => {
-        conversationCache.set(conversation._id, conversation);
+        if (replaceCache) {
+            conversationCache.set(conversation._id, conversation);
+        }
         const other = conversation.otherUser || {};
         const row = document.createElement("div");
         row.className = "message-row";
@@ -161,6 +172,15 @@ function renderConversations(conversations = []) {
         row.appendChild(body);
         listEl.appendChild(row);
     });
+}
+
+function renderConversationCache() {
+    const sorted = Array.from(conversationCache.values()).sort((a, b) => {
+        const aTime = new Date(a.lastMessageAt || 0).getTime();
+        const bTime = new Date(b.lastMessageAt || 0).getTime();
+        return bTime - aTime;
+    });
+    renderConversations(sorted, { replaceCache: false });
 }
 
 function renderUserDirectory(users = []) {
@@ -244,7 +264,7 @@ function setSearchMode(isSearch) {
 async function loadConversations() {
     try {
         const data = await apiRequest("/api/messages/conversations");
-        renderConversations(data?.conversations || []);
+        renderConversations(data?.conversations || [], { replaceCache: true });
     } catch (error) {
         console.error("Failed to load conversations:", error.message);
     }
@@ -287,17 +307,11 @@ async function startConversationWithUser(userId) {
 }
 
 function startConversationPolling() {
-    stopConversationPolling();
     loadConversations();
     loadUserDirectory();
-    conversationPollId = setInterval(loadConversations, 5000);
 }
 
 function stopConversationPolling() {
-    if (conversationPollId) {
-        clearInterval(conversationPollId);
-        conversationPollId = null;
-    }
 }
 
 function setChatHeader(conversation) {
@@ -362,10 +376,14 @@ async function loadMessages({ reset } = {}) {
         if (reset) {
             const container = document.getElementById("chat-messages");
             if (container) container.innerHTML = "";
+            activeMessageIds.clear();
         }
 
         if (messages.length) {
-            messages.forEach(renderMessageBubble);
+            messages.forEach((message) => {
+                activeMessageIds.add(message._id);
+                renderMessageBubble(message);
+            });
             lastMessageCursor = messages[messages.length - 1].createdAt;
             requestAnimationFrame(() => scrollChatToBottom());
         }
@@ -376,17 +394,11 @@ async function loadMessages({ reset } = {}) {
 
 function startMessagePolling() {
     if (!activeConversationId) return;
-    stopMessagePolling();
     lastMessageCursor = null;
     loadMessages({ reset: true });
-    messagePollId = setInterval(() => loadMessages({ reset: false }), 5000);
 }
 
 function stopMessagePolling() {
-    if (messagePollId) {
-        clearInterval(messagePollId);
-        messagePollId = null;
-    }
 }
 
 async function sendMessage() {
@@ -405,7 +417,7 @@ async function sendMessage() {
         );
         input.value = "";
         const message = data?.message;
-        if (message) {
+        if (message && (!socket || !socket.connected)) {
             renderMessageBubble(message);
             lastMessageCursor = message.createdAt;
             scrollChatToBottom();
@@ -423,6 +435,7 @@ function openMessages() {
     stopMessagePolling();
     startConversationPolling();
     setSearchMode(false);
+    leaveActiveConversationRoom();
     window.scrollTo(0, 0);
 }
 
@@ -451,6 +464,7 @@ function openProfile() {
     showElement("brand-header");
     stopMessagePolling();
     stopConversationPolling();
+    leaveActiveConversationRoom();
     window.scrollTo(0, 0);
 }
 
@@ -469,6 +483,7 @@ function openChatByConversationId(conversationId) {
     setChatHeader(conversation);
     stopConversationPolling();
     startMessagePolling();
+    joinConversationRoom(conversationId);
     window.scrollTo(0, 0);
 }
 
@@ -500,6 +515,120 @@ function hideElement(id) {
 function showElement(id) {
     const el = document.getElementById(id);
     if (el) el.classList.remove("hidden");
+}
+
+function startPresencePing() {
+    if (presencePingId) return;
+    if (socket && socket.connected) {
+        socket.emit("presence:ping");
+    }
+    presencePingId = setInterval(() => {
+        if (socket && socket.connected) {
+            socket.emit("presence:ping");
+        }
+    }, PRESENCE_PING_MS);
+}
+
+function stopPresencePing() {
+    if (presencePingId) {
+        clearInterval(presencePingId);
+        presencePingId = null;
+    }
+}
+
+function joinConversationRoom(conversationId) {
+    if (!socket || !socket.connected || !conversationId) return;
+    if (activeConversationRoom === conversationId) return;
+    leaveActiveConversationRoom();
+    socket.emit("chat:join", { conversationId });
+    activeConversationRoom = conversationId;
+}
+
+function leaveActiveConversationRoom() {
+    if (!socket || !socket.connected || !activeConversationRoom) return;
+    socket.emit("chat:leave", { conversationId: activeConversationRoom });
+    activeConversationRoom = null;
+}
+
+function applyConversationUpdate(conversation) {
+    const normalized = normalizeConversation(conversation);
+    if (!normalized?._id) return;
+    conversationCache.set(normalized._id, normalized);
+    renderConversationCache();
+
+    if (normalized._id === activeConversationId) {
+        setChatHeader(normalized);
+    }
+}
+
+function applyPresenceUpdate(payload = {}) {
+    const targetId = payload.userId ? String(payload.userId) : "";
+    if (!targetId) return;
+    let updated = false;
+
+    conversationCache.forEach((conversation, key) => {
+        if (String(conversation?.otherUser?._id) !== targetId) return;
+        conversation.otherUser = {
+            ...conversation.otherUser,
+            isOnline: Boolean(payload.isOnline),
+            lastSeenAt: payload.lastSeenAt || conversation.otherUser?.lastSeenAt || null,
+        };
+        conversationCache.set(key, conversation);
+        updated = true;
+        if (String(conversation._id) === String(activeConversationId)) {
+            setChatHeader(conversation);
+        }
+    });
+
+    if (updated) {
+        renderConversationCache();
+    }
+}
+
+function handleIncomingMessage(message) {
+    if (!message?._id) return;
+    if (message.conversationId && String(message.conversationId) !== String(activeConversationId)) {
+        return;
+    }
+    if (activeMessageIds.has(message._id)) return;
+    activeMessageIds.add(message._id);
+    renderMessageBubble(message);
+    lastMessageCursor = message.createdAt;
+    scrollChatToBottom();
+}
+
+function startSocketConnection() {
+    if (typeof io === "undefined") return;
+    if (socket) return;
+
+    socket = io(API_BASE, { auth: { token } });
+
+    socket.on("connect", () => {
+        startPresencePing();
+        if (activeConversationId) {
+            joinConversationRoom(activeConversationId);
+        }
+    });
+
+    socket.on("chat:conversation:update", (payload = {}) => {
+        applyConversationUpdate(payload.conversation);
+    });
+
+    socket.on("chat:message", (payload = {}) => {
+        handleIncomingMessage(payload.message);
+    });
+
+    socket.on("chat:presence:update", (payload = {}) => {
+        applyPresenceUpdate(payload);
+    });
+
+    socket.on("disconnect", () => {
+        stopPresencePing();
+    });
+
+    socket.on("connect_error", (error) => {
+        console.error("Socket connection failed:", error.message);
+    });
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -538,4 +667,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         openMessages();
         startConversationWithUser(pendingUserId);
     }
+
+    startSocketConnection();
 });

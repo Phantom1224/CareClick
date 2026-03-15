@@ -1,9 +1,9 @@
 const API_BASE = window.location.origin;
 const TOKEN_KEY = "careclickToken";
 const LOCATION_SYNC_MS = 5000;
+const PRESENCE_PING_MS = 10000;
 const USER_MARKER_ICON_URL = "Icon/gps-green.png";
 const OTHER_USER_MARKER_BLINK_MS = 500;
-const FEED_REFRESH_MS = LOCATION_SYNC_MS;
 const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
 
 const token = localStorage.getItem(TOKEN_KEY);
@@ -17,7 +17,8 @@ let customUserMarkerIconCheckPromise = null;
 let userMarkerReadyPromise = null;
 let latestMarkerUpdateId = 0;
 let currentUserId = null;
-let feedRefreshTimerId = null;
+let socket = null;
+let presencePingId = null;
 const otherUserMarkers = new Map();
 let isRequestingActive = false;
 let selectedUserForModal = null;
@@ -45,9 +46,14 @@ function formatCoordinates(lat, lng) {
 }
 
 function clearSessionAndRedirect() {
-    if (feedRefreshTimerId) {
-        clearInterval(feedRefreshTimerId);
-        feedRefreshTimerId = null;
+    if (presencePingId) {
+        clearInterval(presencePingId);
+        presencePingId = null;
+    }
+
+    if (socket) {
+        socket.disconnect();
+        socket = null;
     }
 
     otherUserMarkers.forEach((entry) => entry.marker.remove());
@@ -220,6 +226,11 @@ async function syncLocation(lat, lng) {
     if (now - lastLocationSyncAt < LOCATION_SYNC_MS) return;
     lastLocationSyncAt = now;
 
+    if (socket && socket.connected) {
+        socket.emit("location:update", { lat, lng });
+        return;
+    }
+
     try {
         await apiRequest("/api/users/me/location", {
             method: "PATCH",
@@ -334,11 +345,58 @@ async function refreshLocationFeedMarkers() {
     }
 }
 
-function startLocationFeedRefresh() {
-    if (feedRefreshTimerId) return;
+function startPresencePing() {
+    if (presencePingId) return;
+    if (socket && socket.connected) {
+        socket.emit("presence:ping");
+    }
+    presencePingId = setInterval(() => {
+        if (socket && socket.connected) {
+            socket.emit("presence:ping");
+        }
+    }, PRESENCE_PING_MS);
+}
 
-    refreshLocationFeedMarkers();
-    feedRefreshTimerId = setInterval(refreshLocationFeedMarkers, FEED_REFRESH_MS);
+function stopPresencePing() {
+    if (presencePingId) {
+        clearInterval(presencePingId);
+        presencePingId = null;
+    }
+}
+
+function startLocationSocket() {
+    if (typeof io === "undefined") {
+        refreshLocationFeedMarkers();
+        return;
+    }
+
+    if (socket) return;
+
+    socket = io(API_BASE, { auth: { token } });
+
+    socket.on("connect", () => {
+        startPresencePing();
+    });
+
+    socket.on("location:feed", (payload = {}) => {
+        const users = Array.isArray(payload?.users) ? payload.users : [];
+        syncOtherUserMarkers(users);
+    });
+
+    socket.on("location:error", (payload = {}) => {
+        if (payload?.message) {
+            console.warn("Location update error:", payload.message);
+        }
+    });
+
+    socket.on("disconnect", () => {
+        stopPresencePing();
+    });
+
+    socket.on("connect_error", (error) => {
+        console.error("Socket connection failed:", error.message);
+        refreshLocationFeedMarkers();
+    });
 }
 
 function requestHelp() {
@@ -454,13 +512,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     initMap();
     await loadCurrentUser();
     startLocationTracking();
-    startLocationFeedRefresh();
+    startLocationSocket();
 });
 
 window.addEventListener("beforeunload", () => {
-    if (feedRefreshTimerId) {
-        clearInterval(feedRefreshTimerId);
-        feedRefreshTimerId = null;
+    stopPresencePing();
+
+    if (socket) {
+        socket.disconnect();
+        socket = null;
     }
 
     otherUserMarkers.forEach((entry) => entry.marker.remove());

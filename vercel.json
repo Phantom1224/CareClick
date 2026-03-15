@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "server/api/index.js", "use": "@vercel/node" },
+    { "src": "client/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "^/api/(.*)", "dest": "/server/api/index.js" },
+    { "src": "^/health/?$", "dest": "/server/api/index.js" },
+    { "src": "^/$", "dest": "/client/Login.html" },
+    { "src": "^/home/?$", "dest": "/client/Home.html" },
+    { "src": "^/menu/?$", "dest": "/client/Menu.html" },
+    { "src": "^/profile/?$", "dest": "/client/Profile.html" },
+    { "src": "/(.*)", "dest": "/client/$1" }
+  ]
+}

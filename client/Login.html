@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CareClick Mobile</title>
+    <link rel="stylesheet" href="Login.css">
+</head>
+<body>
+
+<header>
+    <h1 class="logo">Care<span>Click</span></h1>
+</header>
+
+<main class="container">
+    <div id="view-login" class="card">
+        <h2>Welcome Back</h2>
+        <p class="subtitle">Log in to continue to CareClick</p>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="login-email">Email</label>
+                <input id="login-email" type="email" placeholder="Enter your email" required>
+            </div>
+            <div class="form-group">
+                <label for="login-password">Password</label>
+                <input id="login-password" type="password" placeholder="Enter your password" required>
+            </div>
+            <a class="link forgot-link" onclick="toggleView('view-forgot')">Forgot password?</a>
+            <p id="login-message" class="form-message hidden"></p>
+            <button class="btn" type="submit">Log In</button>
+            <div class="links-container">
+                Don't have an account? <a class="link green" onclick="toggleView('view-signup')">Sign up</a>
+            </div>
+        </form>
+    </div>
+
+    <div id="view-forgot" class="card hidden">
+        <div class="icon-circle">
+             <img src="Icon/Lock 3.png" alt="Forgot Password" class="icon">
+        </div>
+        <h2>Forgot Password</h2>
+        <p class="subtitle">Fill out the form below.</p>
+        <form id="forgot-form">
+            <div class="form-group">
+                <label for="forgot-email">Email Address</label>
+                <input id="forgot-email" type="email" placeholder="Enter your email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="forgot-new-password">New Password</label>
+                <input id="forgot-new-password" type="password" placeholder="Create a new password" required>
+            </div>
+
+            <div class="form-group">
+                <label for="forgot-confirm-password">Re-type New Password</label>
+                <input id="forgot-confirm-password" type="password" placeholder="Re-enter your new password" required>
+            </div>
+
+            <div class="form-group">
+                <label for="forgot-code">Verification Code</label>
+                <input id="forgot-code" type="text" inputmode="numeric" placeholder="Enter your code" required>
+            </div>
+
+            <p class="resend-text">
+                <a class="link green" id="forgot-resend-btn" onclick="handleForgotCodeRequest()">Get code</a>
+                <span id="forgot-timer-display" class="hidden" style="color: #64748b; font-size: 0.85rem;"></span>
+            </p>
+
+            <p id="forgot-message" class="form-message hidden"></p>
+            <button class="btn" type="submit">Reset Password</button>
+            <div class="links-container">
+                <a class="link" onclick="toggleView('view-login')">Back to Log in</a>
+            </div>
+        </form>
+    </div>
+
+    <div id="view-signup" class="card hidden">
+        <h2>Create Account</h2>
+        <p class="subtitle">Join CareClick to access quality healthcare</p>
+        <form id="signup-form">
+            <div class="form-group">
+                <label for="signup-name">Username</label>
+                <input id="signup-name" type="text" placeholder="Enter your username" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-email">Email Address</label>
+                <input id="signup-email" type="email" placeholder="Enter your email" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-password">Password</label>
+                <input id="signup-password" type="password" placeholder="Create a password" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-confirm-password">Confirm Password</label>
+                <input id="signup-confirm-password" type="password" placeholder="Re-enter your password" required>
+            </div>
+            
+            <p id="signup-message" class="form-message hidden"></p>
+            <button class="btn" type="submit">Sign Up</button>
+            <div class="links-container">
+                Already have an account? <a class="link green" onclick="toggleView('view-login')">Log in</a>
+            </div>
+        </form>
+    </div>
+
+    <div id="view-verify" class="card hidden">
+        <h2>Verify Your Account</h2>
+        <p class="subtitle">Enter the 6-digit code sent to your email</p>
+        <div class="otp-container">
+            <input type="text" maxlength="1" class="otp-input" inputmode="numeric">
+            <input type="text" maxlength="1" class="otp-input" inputmode="numeric">
+            <input type="text" maxlength="1" class="otp-input" inputmode="numeric">
+            <input type="text" maxlength="1" class="otp-input" inputmode="numeric">
+            <input type="text" maxlength="1" class="otp-input" inputmode="numeric">
+            <input type="text" maxlength="1" class="otp-input" inputmode="numeric">
+        </div>
+        <p id="verify-message" class="form-message hidden"></p>
+
+        <p class="resend-text">
+            Didn't receive the code?
+            <a class="link green" id="signup-resend-btn" onclick="handleResendSignupCode()">Resend</a>
+            <span id="signup-timer-display" class="hidden" style="color: #64748b; font-size: 0.85rem;"></span>
+        </p>
+
+        <button class="btn" type="button" onclick="handleVerify()">Verify</button>
+        <div class="links-container">
+            <a class="link" onclick="toggleView('view-signup')">Back to Sign up</a>
+        </div>
+    </div>
+</main>
+
+<script src="Login.js"></script>
+</body>
+</html>

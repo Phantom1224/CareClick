@@ -1,0 +1,221 @@
+:root {
+    --primary-green: #82d14d;
+    --primary-blue: #eff6ff; 
+    --icon-blue: #3b82f6;    
+    --text-dark: #1e293b;
+    --text-muted: #64748b;
+    --bg-light: #f8fafc;
+    --white: #ffffff;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --end-call-red: #ff4d5e;
+    --other-user-blink-ms: 500ms;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-light);
+    margin: 0;
+    padding: 0;
+    color: var(--text-dark);
+    height: 100vh;
+    overflow: hidden;
+}
+
+.hidden { display: none !important; }
+
+@keyframes otherUserBlink {
+    0% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+.other-user-marker {
+    animation: otherUserBlink var(--other-user-blink-ms) infinite;
+}
+
+
+/* MAP VIEW */
+#view-home {
+    position: relative;
+    height: 100vh;
+    width: 100%;
+}
+
+#map {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    z-index: 0;
+    pointer-events: auto;
+}
+
+.map-overlay-header {
+    position: absolute;
+    top: 15px;
+    left: 5%;
+    width: 90%;
+    background: white;
+    padding: 12px 20px;
+    border-radius: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+    box-shadow: var(--shadow);
+}
+
+#view-home {
+    z-index: 2;
+}
+
+.logo { font-size: 1.4rem; font-weight: 800; margin: 0; }
+.logo span { color: var(--primary-green); }
+.live-location {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.search-trigger { 
+    background:none; 
+    border:none; 
+    font-size:1.2rem; 
+    cursor: pointer; 
+}
+
+.search-trigger img { 
+    width: 24px; /* Adjust this to match the icon size */
+    height: 24px; 
+    object-fit: contain; 
+}
+
+/* SOS Button & Animation */
+@keyframes pulse {
+    0% { transform: translateX(-50%) scale(1); box-shadow: 0 0 0 0 rgba(130, 209, 77, 0.7); }
+    70% { transform: translateX(-50%) scale(1.05); box-shadow: 0 0 0 15px rgba(130, 209, 77, 0); }
+    100% { transform: translateX(-50%) scale(1); box-shadow: 0 0 0 0 rgba(130, 209, 77, 0); }
+}
+
+.sos-button {
+    position: absolute;
+    bottom: 150px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 85px;
+    height: 85px;
+    background: #bbf7d0;
+    border: 5px solid #82d14d;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 8px 20px rgba(130, 209, 77, 0.4);
+    cursor: pointer;
+    z-index: 40;
+    animation: pulse 2s infinite;
+}
+
+.sos-button img {
+    width: 75px; /* Adjust this value based on your desired size */
+    height: 75px; /* Keep it the same to maintain a square aspect ratio */
+    object-fit: cover; /* This will ensure that the image fits within the circle */
+    border-radius: 50%; /* Make sure the image is rounded within the button */
+}
+
+
+/* Modal Styles */
+.request-card {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 300px;
+    background: white;
+    border-radius: 30px;
+    padding: 30px 20px;
+    text-align: center;
+    z-index: 100;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalPop {
+    from { opacity: 0; transform: translate(-50%, -60%) scale(0.9); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.profile-avatar {
+    width: 70px; height: 70px; border-radius: 50%;
+    border: 2px solid #3b82f6; margin: 0 auto 15px;
+    display: flex; justify-content: center; align-items: center; background: #eff6ff;
+}
+
+.profile-avatar img {
+    width: 75px; /* Adjust this to match your desired avatar size */
+    height: 75px; /* Keep it the same to maintain a square aspect ratio */
+    object-fit: cover; /* This will make the image fit well inside the circular container */
+    border-radius: 50%; /* Ensure the image is circular */
+}
+
+.request-card h2 { font-size: 1.3rem; font-weight: 800; margin: 10px 0 25px 0; color: #000; }
+
+.modal-btn-group { display: flex; gap: 10px; }
+.btn-modal { flex: 1; padding: 12px; border-radius: 12px; border: none; font-weight: 800; font-size: 1rem; cursor: pointer; }
+.btn-reject { background: #ff4d5e; color: white; }
+.btn-accept { background: #82d14d; color: white; }
+
+/* Status Panels */
+.bottom-panel {
+    position: absolute; bottom: 85px; width: 100%;
+    background: white; padding: 20px 20px 40px; border-radius: 30px 30px 0 0;
+    display: flex; flex-direction: column; align-items: center;
+    box-shadow: 0 -10px 25px rgba(0,0,0,0.1); z-index: 55;
+    animation: slideUp 0.3s ease-out;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.panel-title { font-size: 1.3rem; font-weight: 800; margin-bottom: 15px; }
+.no-margin { margin: 0; }
+.location-header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+}
+
+.btn-action { border: none; padding: 12px 40px; border-radius: 12px; font-size: 1.1rem; font-weight: 800; cursor: pointer; min-width: 150px; }
+.btn-cancel { background: var(--end-call-red); color: white; }
+.btn-done { background: var(--primary-green); color: white; }
+
+/* Navigation */
+.bottom-nav {
+    position: fixed; bottom: 0; width: 100%; background: var(--white);
+    display: flex; justify-content: space-around; align-items: center;
+    padding: 5px 0 15px 0; border-top: 1px solid #f1f5f9; z-index: 60;
+}
+.nav-item { font-size: 1.5rem; color: var(--text-muted); padding: 10px; }
+
+.nav-others { font-size: 1.5rem; color: var(--text-muted); padding: 10px; cursor: pointer; }
+
+.home-active-btn { 
+    background: var(--primary-blue); color: var(--icon-blue); border-radius: 50%; 
+    width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; 
+}
+
+.home-active-btn img, .nav-item img {
+    width: 24px;  /* Adjust this to match the size of the icons */
+    height: 24px;
+    object-fit: contain;
+}
+
+.nav-others img {
+    width: 45px;
+    height: 45px;
+    object-fit: contain;
+}

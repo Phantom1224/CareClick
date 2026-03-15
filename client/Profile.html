@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CareClick - Profile</title>
+    <link rel="stylesheet" href="Profile.css">
+</head>
+<body>
+
+    <div class="brand-header" id="brand-header">
+        <h1 class="logo">Care<span>Click</span></h1>
+    </div>
+
+    <div id="view-profile">
+        <header>
+            <div style="width: 30px;"></div> 
+            <span class="page-title">Profile</span>
+            <img src="Icon/Pencil.png" alt="Edit" style="width: 20px; height: 20px;">
+            </button>
+        </header>
+
+        <main class="content-container profile-center">
+            <div class="avatar-wrapper">
+                <img src="Icon/new-profile.png" alt="Profile Avatar" style="width: 100px; height: 100px;">
+            </div>
+            <div class="profile-details">
+                <h2 id="profile-username" style="margin: 10px 0 5px 0; font-size: 1.6rem;">username</h2>
+                <p id="profile-email" class="profile-meta">@email</p>
+            </div>
+
+            <div class="info-card" onclick="openMessages()">
+                <div class="icon-box green-bg">
+                <img src="Icon/Message.png" alt="Messages" style="width: 24px; height: 24px;">
+                </div>
+                    <p class="info-value">Messages</p>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+        </main>
+    </div>
+
+    <div id="view-messenger" class="hidden">
+        <header>
+            <button class="icon-btn" onclick="openProfile()">←</button>
+            <button class="icon-btn" id="search-toggle-btn" onclick="toggleUserSearch()">
+                <img src="Icon/Search.png" alt="Search" style="width: 20px; height: 20px;">
+            </button>
+        </header>
+
+        <main class="content-container">
+            <h2 class="msg-section-title">Messages</h2>
+            <div class="search-row hidden" id="user-search-row">
+                <input type="text" id="user-search-input" class="search-input" placeholder="Search users...">
+            </div>
+            <div id="messages-empty" class="msg-empty hidden">No conversations yet.</div>
+            <div id="messages-list"></div>
+            <div id="users-empty" class="msg-empty hidden">No other users found.</div>
+            <div id="users-list"></div>
+        </main>
+    </div>
+
+    <div id="view-chat" class="hidden">
+        <header>
+            <button class="icon-btn" onclick="openMessages()">←</button>
+            <div style="text-align: center; flex: 1;">
+                <div class="page-title" id="chat-title">User Name</div>
+                <div class="active-status" id="chat-status">Active now</div>
+            </div>
+        </header>
+        <main class="content-container chat-container" id="chat-messages"></main>
+
+        <footer class="chat-footer">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Type a message...">
+            <button class="send-icon-btn" id="chat-send-btn" style="cursor: pointer;">➤</button>
+        </footer>
+    </div>
+
+    <div id="view-call" class="hidden">
+        <div class="call-page-branding">
+            <h1 class="logo">Care<span>Click</span></h1>
+        </div>
+
+        <div class="call-header">
+            <div class="call-header-btn" onclick="endCall()">←</div>
+            <div class="page-title" id="call-name">Peter Parker</div>
+            <div class="call-header-btn transparent">⋮</div>
+        </div>
+
+        <div class="call-avatar-container">
+            <div class="call-avatar-glow">
+               <img src="images (7).jpg" class="call-avatar-img" alt="User">
+            </div>
+            <div class="call-status-info">
+                <div class="call-timer">
+                    <div class="timer-dot"></div>
+                    <span>00:24</span>
+                </div>
+                <div class="call-status-label">Connected</div>
+               <img src="Signal.png" alt="Signal" style="width: 16px; height: 16px;">
+                    <span>Excellent connection</span>
+            </div>
+        </div>
+
+        <div class="call-action-card">
+            <div class="call-buttons-row">
+                <div class="call-btn-item">
+                    <div class="call-icon-circle">
+                    <img src="Mic.png" alt="Mute" style="width: 24px; height: 24px;">
+                    </div>
+                    <span>Mute</span>
+                </div>
+                <div class="call-btn-item">
+                    <div class="call-icon-circle active">
+                        <img src="Speaker.png" alt="Speaker" style="width: 24px; height: 24px;">
+                    </div>
+                    <span style="color: var(--primary-green)">Speaker</span>
+                </div>
+                <div class="call-btn-item">
+                    <div class="call-icon-circle">
+                    <img src="Message 2.png" alt="Message" style="width: 24px; height: 24px;">
+                    </div>
+                    <span>Message</span>
+                </div>
+            </div>
+            <button class="btn-end-call" onclick="endCall()">
+                <span class="phone-icon-rotated">📞</span> End Call
+            </button>
+        </div>
+    </div>
+
+    <nav class="bottom-nav" id="main-nav">
+        <div class="nav-item green-active">
+            <img src="Icon/Home-black.png" alt="Home" style="width: 24px; height: 24px;" onclick="window.location.href='Home.html'" cursor="pointer">
+        </div>
+        <div class="nav-item active" onclick="openProfile()">
+            <img src="Icon/Profile.png" alt="Profile" style="width: 45px; height: 45px;">
+        </div>
+        <div class="nav-item" onclick="window.location.href='Menu.html'" curssor="pointer">☰</div>
+    </nav>
+
+    <script src="Profile.js"></script>
+</body>
+</html>

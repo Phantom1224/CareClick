@@ -56,6 +56,7 @@ async function requestJson(path, payload) {
     const response = await fetch(`${API_BASE}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
     });
 
@@ -87,7 +88,6 @@ async function handleLogin(event) {
 
     try {
         const data = await requestJson("/api/auth/login", { emailAddress, password });
-        localStorage.setItem("careclickToken", data.token);
         window.location.href = "Home.html";
     } catch (error) {
         setMessage("login-message", error.message, true);
@@ -211,7 +211,6 @@ async function handleVerify() {
             code,
         });
 
-        localStorage.setItem("careclickToken", data.token);
         pendingSignupEmail = "";
         window.location.href = "Home.html";
     } catch (error) {
@@ -302,11 +301,7 @@ function setupOtpInputBehavior() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    const token = localStorage.getItem("careclickToken");
-    if (token) {
-        window.location.href = "Home.html";
-        return;
-    }
+    checkExistingSession();
 
     setOtpInputsDisabled(false);
     document.getElementById("login-form").addEventListener("submit", handleLogin);
@@ -314,6 +309,22 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("forgot-form").addEventListener("submit", handleForgotPassword);
     setupOtpInputBehavior();
 });
+
+async function checkExistingSession() {
+    try {
+        const response = await fetch(`${API_BASE}/api/users/me`, {
+            method: "GET",
+            credentials: "include",
+        });
+        if (response.ok) {
+            window.location.href = "Home.html";
+            return true;
+        }
+    } catch (_error) {
+        // Ignore network errors; user will log in.
+    }
+    return false;
+}
 
 window.handleVerify = handleVerify;
 window.handleResendSignupCode = handleResendSignupCode;

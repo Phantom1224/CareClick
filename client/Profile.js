@@ -1,8 +1,6 @@
 const API_BASE = window.location.origin;
-const TOKEN_KEY = "careclickToken";
 const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
 const PRESENCE_PING_MS = 10000;
-const token = localStorage.getItem(TOKEN_KEY);
 
 let currentUserId = null;
 let activeConversationId = null;
@@ -15,20 +13,16 @@ let presencePingId = null;
 let activeConversationRoom = null;
 let activeMessageIds = new Set();
 
-if (!token) {
-    window.location.href = "Login.html";
-}
-
 function authHeaders() {
     return {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
     };
 }
 
 async function apiRequest(path, options = {}) {
     const response = await fetch(`${API_BASE}${path}`, {
         ...options,
+        credentials: "include",
         headers: {
             ...(options.headers || {}),
             ...authHeaders(),
@@ -43,7 +37,6 @@ async function apiRequest(path, options = {}) {
     }
 
     if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
         if (socket) {
             socket.disconnect();
             socket = null;
@@ -601,7 +594,7 @@ function startSocketConnection() {
     if (typeof io === "undefined") return;
     if (socket) return;
 
-    socket = io(API_BASE, { auth: { token } });
+    socket = io(API_BASE, { withCredentials: true });
 
     socket.on("connect", () => {
         startPresencePing();

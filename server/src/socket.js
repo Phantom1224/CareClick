@@ -2,6 +2,7 @@ const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 const User = require("./models/User");
 const Conversation = require("./models/Conversation");
+const { getAuthTokenFromCookieHeader } = require("./utils/authCookie");
 
 const ONLINE_WINDOW_MS = 15000;
 let io = null;
@@ -73,7 +74,9 @@ function initSocket(httpServer) {
   });
 
   io.use((socket, next) => {
-    const token = socket.handshake.auth?.token || "";
+    const token =
+      socket.handshake.auth?.token ||
+      getAuthTokenFromCookieHeader(socket.handshake.headers?.cookie || "");
     if (!token) {
       return next(new Error("Missing auth token"));
     }

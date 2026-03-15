@@ -1,3 +1,4 @@
+const API_BASE = window.location.origin;
 const menuView = document.getElementById('menu-view');
 const notificationView = document.getElementById('notification-view');
 const privacyView = document.getElementById('privacy-view');
@@ -10,7 +11,6 @@ const bottomNav = document.getElementById('bottom-nav');
 const backBtn = document.getElementById('back-btn');
 const headerTitle = document.getElementById('header-title');
 const termsView = document.getElementById('terms-view');
-const TOKEN_KEY = 'careclickToken';
 
 function showNotifications() {
     hideAllViews();
@@ -92,8 +92,15 @@ function showTerms() {
     headerTitle.innerText = 'Terms & Conditions';
 }
 
-function logoutUser() {
-    localStorage.removeItem(TOKEN_KEY);
+async function logoutUser() {
+    try {
+        await fetch(`${API_BASE}/api/auth/logout`, {
+            method: "POST",
+            credentials: "include",
+        });
+    } catch (_error) {
+        // Ignore network errors; we'll still redirect.
+    }
     window.location.href = 'Login.html';
 }
 

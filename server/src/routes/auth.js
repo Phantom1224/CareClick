@@ -4,6 +4,11 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const User = require("../models/User");
+const {
+  setAuthCookie,
+  clearAuthCookie,
+  getAuthTokenExpirySeconds,
+} = require("../utils/authCookie");
 
 const router = express.Router();
 
@@ -18,7 +23,7 @@ function buildToken(user) {
   return jwt.sign(
     { userId: user._id.toString(), role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: getAuthTokenExpirySeconds() }
   );
 }
 
@@ -227,6 +232,7 @@ router.post("/signup/verify-code", async (req, res) => {
 
     pendingSignups.delete(normalizedEmail);
     const token = buildToken(user);
+    setAuthCookie(res, token);
     return res.status(201).json({ token, user: user.toJSON() });
   } catch (error) {
     if (error?.code === 11000) {
@@ -384,6 +390,7 @@ router.post("/signup", async (req, res) => {
     });
 
     const token = buildToken(user);
+    setAuthCookie(res, token);
     return res.status(201).json({ token, user: user.toJSON() });
   } catch (error) {
     if (error?.code === 11000) {
@@ -412,10 +419,16 @@ router.post("/login", async (req, res) => {
     }
 
     const token = buildToken(user);
+    setAuthCookie(res, token);
     return res.json({ token, user: user.toJSON() });
   } catch (_error) {
     return res.status(500).json({ message: "Unable to log in" });
   }
+});
+
+router.post("/logout", (_req, res) => {
+  clearAuthCookie(res);
+  return res.json({ message: "Logged out" });
 });
 
 module.exports = router;

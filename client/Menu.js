@@ -104,6 +104,21 @@ async function logoutUser() {
     window.location.href = 'Login.html';
 }
 
+async function requireAuth() {
+    try {
+        const response = await fetch(`${API_BASE}/api/users/me`, {
+            method: "GET",
+            credentials: "include",
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = "Login.html";
+        }
+    } catch (_error) {
+        window.location.href = "Login.html";
+    }
+}
+
 // Logic for Language Selection
 document.querySelectorAll('.language-item').forEach(item => {
     item.addEventListener('click', function() {
@@ -118,4 +133,8 @@ menuItems.forEach((item) => {
     if (label && label.textContent.trim().toLowerCase() === 'log out') {
         item.addEventListener('click', logoutUser);
     }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    requireAuth();
 });

@@ -99,7 +99,7 @@ input:focus { border-color: var(--primary-green); }
 
 .btn:active { transform: scale(0.98); }
 
-.links-container { margin-top: 1.5rem; font-size: 0.9rem; }
+.links-container, .terms-container { margin-top: 1.5rem; font-size: 0.9rem; }
 .link { color: var(--text-muted); text-decoration: none; cursor: pointer; }
 .link.green { color: var(--primary-green); font-weight: 700; }
 
@@ -156,6 +156,63 @@ input:focus { border-color: var(--primary-green); }
     font-size: 0.85rem;
     color: var(--text-muted);
     margin-bottom: 2rem;
+}
+
+.terms-view {
+    text-align: left;
+    max-width: 520px;
+}
+
+.user-agreement-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin: 0.5rem 0 0.25rem;
+}
+
+.terms-scroll-area {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    text-align: left;
+}
+
+.terms-intro {
+    margin: 0 0 1rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.terms-section {
+    margin-bottom: 1rem;
+}
+
+.terms-sub-title {
+    color: var(--text-dark);
+    font-size: 0.95rem;
+    margin: 0 0 0.35rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.terms-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.terms-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--primary-green);
+    border: 2px solid var(--primary-green);
+    box-shadow: none;
 }
 
 @media (max-height: 700px) {

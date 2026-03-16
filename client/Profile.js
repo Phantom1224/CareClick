@@ -1,7 +1,11 @@
-const { requestJson, formatTime, sanitizeToastBody, createToast } = window.CareClick || {};
-const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
-const TOAST_LIFETIME_MS = 5000;
-const TOAST_MAX_VISIBLE = 3;
+const CareClick = window.CareClick || {};
+const {
+    apiRequest: sharedApiRequest,
+    showMessageToast,
+    createNotificationPoller,
+} = CareClick;
+const PENDING_CHAT_USER_KEY =
+    CareClick.PENDING_CHAT_USER_KEY || "careclickPendingChatUserId";
 const NOTIFY_POLL_MS = 5000;
 
 let currentUserId = null;
@@ -14,11 +18,19 @@ let allUsers = [];
 let searchTerm = "";
 let activeMessageIds = new Set();
 const seenNotifyMessageIds = new Set();
-let notifyPollId = null;
-let lastNotifyAt = null;
+const notificationPoller = createNotificationPoller({
+    pollMs: NOTIFY_POLL_MS,
+    onMessage: handleNotifyMessage,
+    onUnauthorized: () => {
+        window.location.href = "Login.html";
+    },
+    onError: (error) => {
+        console.error("Notification poll failed:", error.message);
+    },
+});
 
 async function apiRequest(path, options = {}) {
-    return requestJson(path, options, {
+    return sharedApiRequest(path, options, {
         onUnauthorized: () => {
             window.location.href = "Login.html";
         },
@@ -55,18 +67,6 @@ function openChatWithUserId(userId) {
     startConversationWithUser(userId);
 }
 
-function showMessageToast({ senderName, body, createdAt, senderId }) {
-    const title = senderName ? `New message from ${senderName}` : "New message received";
-    createToast({
-        title,
-        body: sanitizeToastBody(body),
-        time: formatTime(createdAt),
-        onClick: () => openChatWithUserId(senderId),
-        lifetimeMs: TOAST_LIFETIME_MS,
-        maxVisible: TOAST_MAX_VISIBLE,
-    });
-}
-
 function handleChatNotify(payload = {}) {
     const message = payload.message || {};
     if (!message?._id) return;
@@ -92,6 +92,7 @@ function handleChatNotify(payload = {}) {
         body: message.body,
         createdAt: message.createdAt,
         senderId: message.senderId,
+        onClick: () => openChatWithUserId(message.senderId),
     });
 }
 
@@ -423,38 +424,12 @@ function stopMessagePolling() {
     }
 }
 
-async function fetchNotifications() {
-    try {
-        const params = new URLSearchParams();
-        if (lastNotifyAt) {
-            params.set("since", lastNotifyAt);
-        }
-        const query = params.toString() ? `?${params.toString()}` : "";
-        const data = await apiRequest(`/api/messages/notifications${query}`);
-        const messages = Array.isArray(data?.messages) ? data.messages : [];
-        messages.forEach(handleNotifyMessage);
-        if (data?.nextSince) {
-            lastNotifyAt = data.nextSince;
-        }
-    } catch (error) {
-        console.error("Notification poll failed:", error.message);
-    }
-}
-
 function startNotificationPolling() {
-    if (notifyPollId) return;
-    if (!lastNotifyAt) {
-        lastNotifyAt = new Date().toISOString();
-    }
-    fetchNotifications();
-    notifyPollId = setInterval(fetchNotifications, NOTIFY_POLL_MS);
+    notificationPoller.start();
 }
 
 function stopNotificationPolling() {
-    if (notifyPollId) {
-        clearInterval(notifyPollId);
-        notifyPollId = null;
-    }
+    notificationPoller.stop();
 }
 
 async function sendMessage() {

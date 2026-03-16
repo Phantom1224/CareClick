@@ -1,8 +1,14 @@
 (function initCareClickShared() {
     const CareClick = window.CareClick || (window.CareClick = {});
     const API_BASE = window.location.origin;
+    const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
 
     CareClick.API_BASE = API_BASE;
+    CareClick.PENDING_CHAT_USER_KEY = PENDING_CHAT_USER_KEY;
+
+    CareClick.redirectToLogin = function redirectToLogin() {
+        window.location.href = "Login.html";
+    };
 
     CareClick.parseJsonSafe = async function parseJsonSafe(response) {
         try {
@@ -42,6 +48,12 @@
         return data;
     };
 
+    CareClick.apiRequest = async function apiRequest(path, options = {}, { onUnauthorized } = {}) {
+        return CareClick.requestJson(path, options, {
+            onUnauthorized: onUnauthorized || CareClick.redirectToLogin,
+        });
+    };
+
     CareClick.formatTime = function formatTime(value, options = {}) {
         if (!value) return "";
         const date = new Date(value);
@@ -58,6 +70,87 @@
         if (!trimmed) return "Tap to open chat";
         if (trimmed.length <= maxLen) return trimmed;
         return `${trimmed.slice(0, Math.max(0, maxLen - 3))}...`;
+    };
+
+    CareClick.openChatWithUserId = function openChatWithUserId(userId, path = "Profile.html") {
+        if (!userId) return;
+        localStorage.setItem(PENDING_CHAT_USER_KEY, userId);
+        window.location.href = path;
+    };
+
+    CareClick.showMessageToast = function showMessageToast({
+        senderName,
+        body,
+        createdAt,
+        senderId,
+        onClick,
+        lifetimeMs = 5000,
+        maxVisible = 3,
+    }) {
+        const title = senderName ? `New message from ${senderName}` : "New message received";
+        CareClick.createToast({
+            title,
+            body: CareClick.sanitizeToastBody(body),
+            time: CareClick.formatTime(createdAt),
+            onClick: onClick || (() => CareClick.openChatWithUserId(senderId)),
+            lifetimeMs,
+            maxVisible,
+        });
+    };
+
+    CareClick.createNotificationPoller = function createNotificationPoller({
+        apiPath = "/api/messages/notifications",
+        pollMs = 5000,
+        onMessage,
+        onError,
+        onUnauthorized,
+    } = {}) {
+        let pollId = null;
+        let lastSince = null;
+
+        const fetchNotifications = async () => {
+            try {
+                const params = new URLSearchParams();
+                if (lastSince) {
+                    params.set("since", lastSince);
+                }
+                const query = params.toString() ? `?${params.toString()}` : "";
+                const data = await CareClick.apiRequest(`${apiPath}${query}`, {}, { onUnauthorized });
+                const messages = Array.isArray(data?.messages) ? data.messages : [];
+                messages.forEach((message) => {
+                    if (typeof onMessage === "function") {
+                        onMessage(message);
+                    }
+                });
+                if (data?.nextSince) {
+                    lastSince = data.nextSince;
+                }
+            } catch (error) {
+                if (typeof onError === "function") {
+                    onError(error);
+                }
+            }
+        };
+
+        return {
+            start() {
+                if (pollId) return;
+                if (!lastSince) {
+                    lastSince = new Date().toISOString();
+                }
+                fetchNotifications();
+                pollId = setInterval(fetchNotifications, pollMs);
+            },
+            stop() {
+                if (pollId) {
+                    clearInterval(pollId);
+                    pollId = null;
+                }
+            },
+            resetSince(value = null) {
+                lastSince = value;
+            },
+        };
     };
 
     CareClick.createToast = function createToast({

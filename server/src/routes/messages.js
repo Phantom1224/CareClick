@@ -1,44 +1,36 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const requireAuth = require("../middleware/requireAuth");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const User = require("../models/User");
+const { sendError, sendOk, sendCreated } = require("../utils/http");
+const { isValidObjectId } = require("../utils/validation");
+const { toDate } = require("../utils/date");
+const { isOnline } = require("../utils/online");
 
 const router = express.Router();
 const ONLINE_WINDOW_MS = 15000;
 const MAX_LIMIT = 200;
-
-function toDate(value) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function isOnline(lastSeenAt, now) {
-  if (!lastSeenAt) return false;
-  return now.getTime() - new Date(lastSeenAt).getTime() <= ONLINE_WINDOW_MS;
-}
 
 function buildConversationSummary(conversation, userId, now) {
   const other = conversation.participants.find(
     (participant) => participant._id.toString() !== userId
   );
 
-  return {
-    _id: conversation._id,
-    lastMessageText: conversation.lastMessageText || "",
-    lastMessageAt: conversation.lastMessageAt || conversation.updatedAt,
-    otherUser: other
-      ? {
-          _id: other._id,
-          userName: other.userName,
-          emailAddress: other.emailAddress,
-          lastSeenAt: other.lastSeenAt || null,
-          isOnline: isOnline(other.lastSeenAt, now),
-        }
-      : null,
-  };
+    return {
+      _id: conversation._id,
+      lastMessageText: conversation.lastMessageText || "",
+      lastMessageAt: conversation.lastMessageAt || conversation.updatedAt,
+      otherUser: other
+        ? {
+            _id: other._id,
+            userName: other.userName,
+            emailAddress: other.emailAddress,
+            lastSeenAt: other.lastSeenAt || null,
+            isOnline: isOnline(other.lastSeenAt, now, ONLINE_WINDOW_MS),
+          }
+        : null,
+    };
 }
 
 router.get("/conversations", requireAuth, async (req, res) => {
@@ -55,9 +47,9 @@ router.get("/conversations", requireAuth, async (req, res) => {
       return buildConversationSummary(conversation, userId, now);
     });
 
-    return res.json({ conversations: data, onlineWindowMs: ONLINE_WINDOW_MS });
+    return sendOk(res, { conversations: data, onlineWindowMs: ONLINE_WINDOW_MS });
   } catch (_error) {
-    return res.status(500).json({ message: "Unable to load conversations" });
+    return sendError(res, 500, "Unable to load conversations");
   }
 });
 
@@ -66,17 +58,17 @@ router.get("/conversations/with/:otherUserId", requireAuth, async (req, res) => 
     const userId = req.auth.userId;
     const otherUserId = req.params.otherUserId;
 
-    if (!mongoose.Types.ObjectId.isValid(otherUserId)) {
-      return res.status(400).json({ message: "Invalid user id" });
+    if (!isValidObjectId(otherUserId)) {
+      return sendError(res, 400, "Invalid user id");
     }
 
     if (otherUserId === userId) {
-      return res.status(400).json({ message: "Cannot start a conversation with yourself" });
+      return sendError(res, 400, "Cannot start a conversation with yourself");
     }
 
     const otherUser = await User.findById(otherUserId).lean();
     if (!otherUser) {
-      return res.status(404).json({ message: "User not found" });
+      return sendError(res, 404, "User not found");
     }
 
     const participantsKey = Conversation.buildParticipantsKey([userId, otherUserId]);
@@ -100,7 +92,7 @@ router.get("/conversations/with/:otherUserId", requireAuth, async (req, res) => 
       }
 
       if (!conversation) {
-        return res.status(500).json({ message: "Unable to start conversation" });
+        return sendError(res, 500, "Unable to start conversation");
       }
 
       conversation = await Conversation.findById(conversation._id)
@@ -108,9 +100,9 @@ router.get("/conversations/with/:otherUserId", requireAuth, async (req, res) => 
         .lean();
     }
 
-    return res.json({ conversation });
+    return sendOk(res, { conversation });
   } catch (_error) {
-    return res.status(500).json({ message: "Unable to start conversation" });
+    return sendError(res, 500, "Unable to start conversation");
   }
 });
 
@@ -119,8 +111,8 @@ router.get("/conversations/:conversationId/messages", requireAuth, async (req, r
     const userId = req.auth.userId;
     const { conversationId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
-      return res.status(400).json({ message: "Invalid conversation id" });
+    if (!isValidObjectId(conversationId)) {
+      return sendError(res, 400, "Invalid conversation id");
     }
 
     const conversation = await Conversation.findOne({
@@ -129,12 +121,12 @@ router.get("/conversations/:conversationId/messages", requireAuth, async (req, r
     }).lean();
 
     if (!conversation) {
-      return res.status(404).json({ message: "Conversation not found" });
+      return sendError(res, 404, "Conversation not found");
     }
 
     const since = toDate(req.query.since);
     if (req.query.since && !since) {
-      return res.status(400).json({ message: "Invalid since timestamp" });
+      return sendError(res, 400, "Invalid since timestamp");
     }
 
     const limit = Math.min(Number(req.query.limit) || 50, MAX_LIMIT);
@@ -155,9 +147,9 @@ router.get("/conversations/:conversationId/messages", requireAuth, async (req, r
       createdAt: message.createdAt,
     }));
 
-    return res.json({ messages: payload });
+    return sendOk(res, { messages: payload });
   } catch (_error) {
-    return res.status(500).json({ message: "Unable to load messages" });
+    return sendError(res, 500, "Unable to load messages");
   }
 });
 
@@ -166,7 +158,7 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const userId = req.auth.userId;
     const since = toDate(req.query.since);
     if (req.query.since && !since) {
-      return res.status(400).json({ message: "Invalid since timestamp" });
+      return sendError(res, 400, "Invalid since timestamp");
     }
 
     const limit = Math.min(Number(req.query.limit) || 50, MAX_LIMIT);
@@ -177,7 +169,7 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const conversationIds = conversations.map((conversation) => conversation._id);
 
     if (!conversationIds.length) {
-      return res.json({ messages: [], nextSince: since || null });
+      return sendOk(res, { messages: [], nextSince: since || null });
     }
 
     const query = {
@@ -204,9 +196,9 @@ router.get("/notifications", requireAuth, async (req, res) => {
     }));
 
     const nextSince = messages.length ? messages[messages.length - 1].createdAt : since || null;
-    return res.json({ messages: payload, nextSince });
+    return sendOk(res, { messages: payload, nextSince });
   } catch (_error) {
-    return res.status(500).json({ message: "Unable to load notifications" });
+    return sendError(res, 500, "Unable to load notifications");
   }
 });
 
@@ -216,12 +208,12 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
     const { conversationId } = req.params;
     const body = String(req.body.body || "").trim();
 
-    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
-      return res.status(400).json({ message: "Invalid conversation id" });
+    if (!isValidObjectId(conversationId)) {
+      return sendError(res, 400, "Invalid conversation id");
     }
 
     if (!body) {
-      return res.status(400).json({ message: "Message body is required" });
+      return sendError(res, 400, "Message body is required");
     }
 
     const conversation = await Conversation.findOne({
@@ -230,7 +222,7 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
     });
 
     if (!conversation) {
-      return res.status(404).json({ message: "Conversation not found" });
+      return sendError(res, 404, "Conversation not found");
     }
 
     const message = await Message.create({
@@ -243,7 +235,7 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
     conversation.lastMessageAt = message.createdAt;
     await conversation.save();
 
-    return res.status(201).json({
+    return sendCreated(res, {
       message: {
         _id: message._id,
         body: message.body,
@@ -252,7 +244,7 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
       },
     });
   } catch (_error) {
-    return res.status(500).json({ message: "Unable to send message" });
+    return sendError(res, 500, "Unable to send message");
   }
 });
 

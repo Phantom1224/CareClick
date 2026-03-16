@@ -1,12 +1,15 @@
-const { requestJson, formatTime, sanitizeToastBody, createToast } = window.CareClick || {};
+const CareClick = window.CareClick || {};
+const {
+    apiRequest: sharedApiRequest,
+    showMessageToast,
+    openChatWithUserId,
+    createNotificationPoller,
+} = CareClick;
 const LOCATION_SYNC_MS = 5000;
 const USER_MARKER_ICON_URL = "Icon/gps-green.png";
 const OTHER_USER_MARKER_BLINK_MS = 500;
 const FEED_REFRESH_MS = LOCATION_SYNC_MS;
-const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
 const NOTIFY_POLL_MS = 5000;
-const TOAST_LIFETIME_MS = 5000;
-const TOAST_MAX_VISIBLE = 3;
 
 let map = null;
 let userMarker = null;
@@ -19,12 +22,18 @@ let userMarkerReadyPromise = null;
 let latestMarkerUpdateId = 0;
 let currentUserId = null;
 let feedRefreshTimerId = null;
-let notifyPollId = null;
-let lastNotifyAt = null;
 const otherUserMarkers = new Map();
 let isRequestingActive = false;
 let selectedUserForModal = null;
 const seenNotifyMessageIds = new Set();
+const notificationPoller = createNotificationPoller({
+    pollMs: NOTIFY_POLL_MS,
+    onMessage: handleNotifyMessage,
+    onUnauthorized: clearSessionAndRedirect,
+    onError: (error) => {
+        console.error("Notification poll failed:", error.message);
+    },
+});
 
 function setLocationLabel(text) {
     const locationEl = document.getElementById("live-location");
@@ -50,7 +59,7 @@ function clearSessionAndRedirect() {
 }
 
 async function apiRequest(path, options = {}) {
-    return requestJson(path, options, { onUnauthorized: clearSessionAndRedirect });
+    return sharedApiRequest(path, options, { onUnauthorized: clearSessionAndRedirect });
 }
 
 function initMap() {
@@ -308,24 +317,6 @@ function startLocationFeedRefresh() {
     feedRefreshTimerId = setInterval(refreshLocationFeedMarkers, FEED_REFRESH_MS);
 }
 
-function openChatWithUserId(userId) {
-    if (!userId) return;
-    localStorage.setItem(PENDING_CHAT_USER_KEY, userId);
-    window.location.href = "Profile.html";
-}
-
-function showMessageToast({ senderName, body, createdAt, senderId }) {
-    const title = senderName ? `New message from ${senderName}` : "New message received";
-    createToast({
-        title,
-        body: sanitizeToastBody(body),
-        time: formatTime(createdAt),
-        onClick: () => openChatWithUserId(senderId),
-        lifetimeMs: TOAST_LIFETIME_MS,
-        maxVisible: TOAST_MAX_VISIBLE,
-    });
-}
-
 function handleNotifyMessage(message = {}) {
     if (!message?._id) return;
     if (seenNotifyMessageIds.has(message._id)) return;
@@ -340,41 +331,16 @@ function handleNotifyMessage(message = {}) {
         body: message.body,
         createdAt: message.createdAt,
         senderId: message.senderId,
+        onClick: () => openChatWithUserId(message.senderId),
     });
 }
 
-async function fetchNotifications() {
-    try {
-        const params = new URLSearchParams();
-        if (lastNotifyAt) {
-            params.set("since", lastNotifyAt);
-        }
-        const query = params.toString() ? `?${params.toString()}` : "";
-        const data = await apiRequest(`/api/messages/notifications${query}`);
-        const messages = Array.isArray(data?.messages) ? data.messages : [];
-        messages.forEach(handleNotifyMessage);
-        if (data?.nextSince) {
-            lastNotifyAt = data.nextSince;
-        }
-    } catch (error) {
-        console.error("Notification poll failed:", error.message);
-    }
-}
-
 function startNotificationPolling() {
-    if (notifyPollId) return;
-    if (!lastNotifyAt) {
-        lastNotifyAt = new Date().toISOString();
-    }
-    fetchNotifications();
-    notifyPollId = setInterval(fetchNotifications, NOTIFY_POLL_MS);
+    notificationPoller.start();
 }
 
 function stopNotificationPolling() {
-    if (notifyPollId) {
-        clearInterval(notifyPollId);
-        notifyPollId = null;
-    }
+    notificationPoller.stop();
 }
 
 function requestHelp() {
@@ -426,8 +392,7 @@ function openChatFromModal() {
         closeModal();
         return;
     }
-    localStorage.setItem(PENDING_CHAT_USER_KEY, selectedUserForModal._id);
-    window.location.href = "Profile.html";
+    openChatWithUserId(selectedUserForModal._id);
 }
 
 function resetHome() {

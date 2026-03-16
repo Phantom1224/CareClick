@@ -1,13 +1,24 @@
-const { requestJson, formatTime, sanitizeToastBody, createToast } = window.CareClick || {};
-const API_BASE = window.CareClick?.API_BASE || window.location.origin;
-const TOAST_LIFETIME_MS = 5000;
-const TOAST_MAX_VISIBLE = 3;
-const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
+const CareClick = window.CareClick || {};
+const {
+    apiRequest: sharedApiRequest,
+    showMessageToast,
+    openChatWithUserId,
+    createNotificationPoller,
+} = CareClick;
+const API_BASE = CareClick.API_BASE || window.location.origin;
 const NOTIFY_POLL_MS = 5000;
 let currentUserId = null;
 const seenNotifyMessageIds = new Set();
-let notifyPollId = null;
-let lastNotifyAt = null;
+const notificationPoller = createNotificationPoller({
+    pollMs: NOTIFY_POLL_MS,
+    onMessage: handleNotifyMessage,
+    onUnauthorized: () => {
+        window.location.href = "Login.html";
+    },
+    onError: (error) => {
+        console.error("Notification poll failed:", error.message);
+    },
+});
 const menuView = document.getElementById('menu-view');
 const notificationView = document.getElementById('notification-view');
 const privacyView = document.getElementById('privacy-view');
@@ -112,7 +123,7 @@ async function logoutUser() {
 }
 
 async function apiRequest(path, options = {}) {
-    return requestJson(path, options, {
+    return sharedApiRequest(path, options, {
         onUnauthorized: () => {
             window.location.href = "Login.html";
         },
@@ -126,24 +137,6 @@ async function requireAuth() {
     } catch (_error) {
         window.location.href = "Login.html";
     }
-}
-
-function openChatWithUserId(userId) {
-    if (!userId) return;
-    localStorage.setItem(PENDING_CHAT_USER_KEY, userId);
-    window.location.href = "Profile.html";
-}
-
-function showMessageToast({ senderName, body, createdAt, senderId }) {
-    const title = senderName ? `New message from ${senderName}` : "New message received";
-    createToast({
-        title,
-        body: sanitizeToastBody(body),
-        time: formatTime(createdAt),
-        onClick: () => openChatWithUserId(senderId),
-        lifetimeMs: TOAST_LIFETIME_MS,
-        maxVisible: TOAST_MAX_VISIBLE,
-    });
 }
 
 function handleChatNotify(payload = {}) {
@@ -161,6 +154,7 @@ function handleChatNotify(payload = {}) {
         body: message.body,
         createdAt: message.createdAt,
         senderId: message.senderId,
+        onClick: () => openChatWithUserId(message.senderId),
     });
 }
 
@@ -169,38 +163,12 @@ function handleNotifyMessage(message = {}) {
     handleChatNotify({ message });
 }
 
-async function fetchNotifications() {
-    try {
-        const params = new URLSearchParams();
-        if (lastNotifyAt) {
-            params.set("since", lastNotifyAt);
-        }
-        const query = params.toString() ? `?${params.toString()}` : "";
-        const data = await apiRequest(`/api/messages/notifications${query}`);
-        const messages = Array.isArray(data?.messages) ? data.messages : [];
-        messages.forEach(handleNotifyMessage);
-        if (data?.nextSince) {
-            lastNotifyAt = data.nextSince;
-        }
-    } catch (error) {
-        console.error("Notification poll failed:", error.message);
-    }
-}
-
 function startNotificationPolling() {
-    if (notifyPollId) return;
-    if (!lastNotifyAt) {
-        lastNotifyAt = new Date().toISOString();
-    }
-    fetchNotifications();
-    notifyPollId = setInterval(fetchNotifications, NOTIFY_POLL_MS);
+    notificationPoller.start();
 }
 
 function stopNotificationPolling() {
-    if (notifyPollId) {
-        clearInterval(notifyPollId);
-        notifyPollId = null;
-    }
+    notificationPoller.stop();
 }
 
 

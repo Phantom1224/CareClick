@@ -6,7 +6,8 @@ const {
     createNotificationPoller,
 } = CareClick;
 const API_BASE = CareClick.API_BASE || window.location.origin;
-const NOTIFY_POLL_MS = 5000;
+const NOTIFY_POLL_MS =
+    CareClick.config?.polling?.notificationsMs || 5000;
 let currentUserId = null;
 const seenNotifyMessageIds = new Set();
 const notificationPoller = createNotificationPoller({

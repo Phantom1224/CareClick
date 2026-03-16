@@ -8,8 +8,10 @@ const {
 const LOCATION_SYNC_MS = 5000;
 const USER_MARKER_ICON_URL = "Icon/gps-green.png";
 const OTHER_USER_MARKER_BLINK_MS = 500;
-const FEED_REFRESH_MS = LOCATION_SYNC_MS;
-const NOTIFY_POLL_MS = 5000;
+const FEED_REFRESH_MS =
+    CareClick.config?.polling?.locationFeedMs || LOCATION_SYNC_MS;
+const NOTIFY_POLL_MS =
+    CareClick.config?.polling?.notificationsMs || 5000;
 
 let map = null;
 let userMarker = null;

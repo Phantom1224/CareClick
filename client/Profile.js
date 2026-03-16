@@ -6,7 +6,12 @@ const {
 } = CareClick;
 const PENDING_CHAT_USER_KEY =
     CareClick.PENDING_CHAT_USER_KEY || "careclickPendingChatUserId";
-const NOTIFY_POLL_MS = 5000;
+const NOTIFY_POLL_MS =
+    CareClick.config?.polling?.notificationsMs || 5000;
+const CONVERSATION_POLL_MS =
+    CareClick.config?.polling?.conversationsMs || 5000;
+const MESSAGE_POLL_MS =
+    CareClick.config?.polling?.messagesMs || 5000;
 
 let currentUserId = null;
 let conversationPollId = null;
@@ -322,7 +327,7 @@ function startConversationPolling() {
     stopConversationPolling();
     loadConversations();
     loadUserDirectory();
-    conversationPollId = setInterval(loadConversations, 5000);
+    conversationPollId = setInterval(loadConversations, CONVERSATION_POLL_MS);
 }
 
 function stopConversationPolling() {
@@ -414,7 +419,10 @@ function startMessagePolling() {
     if (!activeConversationId) return;
     lastMessageCursor = null;
     loadMessages({ reset: true });
-    messagePollId = setInterval(() => loadMessages({ reset: false }), 5000);
+    messagePollId = setInterval(
+        () => loadMessages({ reset: false }),
+        MESSAGE_POLL_MS
+    );
 }
 
 function stopMessagePolling() {

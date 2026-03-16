@@ -2,9 +2,23 @@
     const CareClick = window.CareClick || (window.CareClick = {});
     const API_BASE = window.location.origin;
     const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
+    const config = {
+        polling: {
+            locationFeedMs: 5000,
+            notificationsMs: 5000,
+            conversationsMs: 5000,
+            messagesMs: 5000,
+        },
+        retry: {
+            baseDelayMs: 1000,
+            maxDelayMs: 15000,
+            jitterMs: 300,
+        },
+    };
 
     CareClick.API_BASE = API_BASE;
     CareClick.PENDING_CHAT_USER_KEY = PENDING_CHAT_USER_KEY;
+    CareClick.config = CareClick.config || config;
 
     CareClick.redirectToLogin = function redirectToLogin() {
         window.location.href = "Login.html";
@@ -100,13 +114,30 @@
 
     CareClick.createNotificationPoller = function createNotificationPoller({
         apiPath = "/api/messages/notifications",
-        pollMs = 5000,
+        pollMs = CareClick.config?.polling?.notificationsMs || 5000,
         onMessage,
         onError,
         onUnauthorized,
+        retry = CareClick.config?.retry,
     } = {}) {
-        let pollId = null;
+        let timerId = null;
         let lastSince = null;
+        let failureCount = 0;
+        let running = false;
+
+        const normalizeRetry = () => ({
+            baseDelayMs: Math.max(250, Number(retry?.baseDelayMs) || 1000),
+            maxDelayMs: Math.max(1000, Number(retry?.maxDelayMs) || 15000),
+            jitterMs: Math.max(0, Number(retry?.jitterMs) || 0),
+        });
+
+        const computeRetryDelay = () => {
+            const { baseDelayMs, maxDelayMs, jitterMs } = normalizeRetry();
+            const expDelay = baseDelayMs * 2 ** Math.max(0, failureCount - 1);
+            const capped = Math.min(expDelay, maxDelayMs);
+            const jitter = jitterMs ? Math.floor(Math.random() * jitterMs) : 0;
+            return capped + jitter;
+        };
 
         const fetchNotifications = async () => {
             try {
@@ -125,26 +156,42 @@
                 if (data?.nextSince) {
                     lastSince = data.nextSince;
                 }
+                failureCount = 0;
             } catch (error) {
+                failureCount += 1;
                 if (typeof onError === "function") {
                     onError(error);
                 }
+                throw error;
             }
+        };
+
+        const scheduleNext = (delayMs) => {
+            if (!running) return;
+            timerId = setTimeout(async () => {
+                try {
+                    await fetchNotifications();
+                    scheduleNext(pollMs);
+                } catch (_error) {
+                    scheduleNext(computeRetryDelay());
+                }
+            }, delayMs);
         };
 
         return {
             start() {
-                if (pollId) return;
+                if (running) return;
+                running = true;
                 if (!lastSince) {
                     lastSince = new Date().toISOString();
                 }
-                fetchNotifications();
-                pollId = setInterval(fetchNotifications, pollMs);
+                scheduleNext(0);
             },
             stop() {
-                if (pollId) {
-                    clearInterval(pollId);
-                    pollId = null;
+                running = false;
+                if (timerId) {
+                    clearTimeout(timerId);
+                    timerId = null;
                 }
             },
             resetSince(value = null) {

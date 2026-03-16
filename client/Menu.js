@@ -86,12 +86,6 @@ function hideAllViews() {
     termsView.style.display = 'none';
 }
 
-function showTerms() {
-    hideAllViews();
-    termsView.style.display = 'block';
-    headerTitle.innerText = 'Terms & Conditions';
-}
-
 async function logoutUser() {
     try {
         await fetch(`${API_BASE}/api/auth/logout`, {

@@ -1,0 +1,114 @@
+(function initCareClickShared() {
+    const CareClick = window.CareClick || (window.CareClick = {});
+    const API_BASE = window.location.origin;
+
+    CareClick.API_BASE = API_BASE;
+
+    CareClick.parseJsonSafe = async function parseJsonSafe(response) {
+        try {
+            return await response.json();
+        } catch (_error) {
+            return {};
+        }
+    };
+
+    CareClick.requestJson = async function requestJson(
+        path,
+        options = {},
+        { onUnauthorized } = {}
+    ) {
+        const response = await fetch(`${API_BASE}${path}`, {
+            credentials: "include",
+            ...options,
+            headers: {
+                "Content-Type": "application/json",
+                ...(options.headers || {}),
+            },
+        });
+
+        const data = await CareClick.parseJsonSafe(response);
+
+        if (response.status === 401) {
+            if (typeof onUnauthorized === "function") {
+                onUnauthorized();
+            }
+            throw new Error("Session expired");
+        }
+
+        if (!response.ok) {
+            throw new Error(data.message || "Request failed");
+        }
+
+        return data;
+    };
+
+    CareClick.formatTime = function formatTime(value, options = {}) {
+        if (!value) return "";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+        return date.toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+            ...options,
+        });
+    };
+
+    CareClick.sanitizeToastBody = function sanitizeToastBody(text, maxLen = 80) {
+        const trimmed = String(text || "").trim();
+        if (!trimmed) return "Tap to open chat";
+        if (trimmed.length <= maxLen) return trimmed;
+        return `${trimmed.slice(0, Math.max(0, maxLen - 3))}...`;
+    };
+
+    CareClick.createToast = function createToast({
+        stackId = "toast-stack",
+        title = "",
+        body = "",
+        time = "",
+        onClick,
+        lifetimeMs = 5000,
+        maxVisible = 3,
+    }) {
+        const stackEl = document.getElementById(stackId);
+        if (!stackEl) return;
+
+        const toast = document.createElement("button");
+        toast.type = "button";
+        toast.className = "toast";
+
+        if (title) {
+            const titleEl = document.createElement("div");
+            titleEl.className = "toast-title";
+            titleEl.textContent = title;
+            toast.appendChild(titleEl);
+        }
+
+        const bodyEl = document.createElement("div");
+        bodyEl.className = "toast-body";
+        bodyEl.textContent = body;
+        toast.appendChild(bodyEl);
+
+        if (time) {
+            const timeEl = document.createElement("div");
+            timeEl.className = "toast-time";
+            timeEl.textContent = time;
+            toast.appendChild(timeEl);
+        }
+
+        if (typeof onClick === "function") {
+            toast.addEventListener("click", onClick);
+        }
+
+        stackEl.appendChild(toast);
+
+        const toasts = stackEl.querySelectorAll(".toast");
+        if (toasts.length > maxVisible) {
+            const extra = Array.from(toasts).slice(0, toasts.length - maxVisible);
+            extra.forEach((item) => item.remove());
+        }
+
+        window.setTimeout(() => {
+            toast.remove();
+        }, lifetimeMs);
+    };
+})();

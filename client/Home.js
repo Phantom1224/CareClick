@@ -1,4 +1,4 @@
-const API_BASE = window.location.origin;
+const { requestJson, formatTime, sanitizeToastBody, createToast } = window.CareClick || {};
 const LOCATION_SYNC_MS = 5000;
 const USER_MARKER_ICON_URL = "Icon/gps-green.png";
 const OTHER_USER_MARKER_BLINK_MS = 500;
@@ -26,12 +26,6 @@ let isRequestingActive = false;
 let selectedUserForModal = null;
 const seenNotifyMessageIds = new Set();
 
-function authHeaders() {
-    return {
-        "Content-Type": "application/json",
-    };
-}
-
 function setLocationLabel(text) {
     const locationEl = document.getElementById("live-location");
     if (locationEl) {
@@ -56,32 +50,7 @@ function clearSessionAndRedirect() {
 }
 
 async function apiRequest(path, options = {}) {
-    const response = await fetch(`${API_BASE}${path}`, {
-        ...options,
-        credentials: "include",
-        headers: {
-            ...(options.headers || {}),
-            ...authHeaders(),
-        },
-    });
-
-    let data = {};
-    try {
-        data = await response.json();
-    } catch (_error) {
-        data = {};
-    }
-
-    if (response.status === 401) {
-        clearSessionAndRedirect();
-        throw new Error("Session expired");
-    }
-
-    if (!response.ok) {
-        throw new Error(data.message || "Request failed");
-    }
-
-    return data;
+    return requestJson(path, options, { onUnauthorized: clearSessionAndRedirect });
 }
 
 function initMap() {
@@ -339,69 +308,22 @@ function startLocationFeedRefresh() {
     feedRefreshTimerId = setInterval(refreshLocationFeedMarkers, FEED_REFRESH_MS);
 }
 
-function formatToastTime(value) {
-    if (!value) return "";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-function sanitizeToastBody(text) {
-    const trimmed = String(text || "").trim();
-    if (!trimmed) return "Tap to open chat";
-    if (trimmed.length <= 80) return trimmed;
-    return `${trimmed.slice(0, 77)}...`;
-}
-
 function openChatWithUserId(userId) {
     if (!userId) return;
     localStorage.setItem(PENDING_CHAT_USER_KEY, userId);
     window.location.href = "Profile.html";
 }
 
-function pruneToasts(stackEl) {
-    const toasts = stackEl.querySelectorAll(".toast");
-    if (toasts.length <= TOAST_MAX_VISIBLE) return;
-    const extra = Array.from(toasts).slice(0, toasts.length - TOAST_MAX_VISIBLE);
-    extra.forEach((toast) => toast.remove());
-}
-
 function showMessageToast({ senderName, body, createdAt, senderId }) {
-    const stackEl = document.getElementById("toast-stack");
-    if (!stackEl) return;
-
-    const toast = document.createElement("button");
-    toast.type = "button";
-    toast.className = "toast";
-
-    const title = document.createElement("div");
-    title.className = "toast-title";
-    title.textContent = senderName ? `New message from ${senderName}` : "New message received";
-
-    const message = document.createElement("div");
-    message.className = "toast-body";
-    message.textContent = sanitizeToastBody(body);
-
-    const time = document.createElement("div");
-    time.className = "toast-time";
-    time.textContent = formatToastTime(createdAt);
-
-    toast.appendChild(title);
-    toast.appendChild(message);
-    if (time.textContent) {
-        toast.appendChild(time);
-    }
-
-    toast.addEventListener("click", () => {
-        openChatWithUserId(senderId);
+    const title = senderName ? `New message from ${senderName}` : "New message received";
+    createToast({
+        title,
+        body: sanitizeToastBody(body),
+        time: formatTime(createdAt),
+        onClick: () => openChatWithUserId(senderId),
+        lifetimeMs: TOAST_LIFETIME_MS,
+        maxVisible: TOAST_MAX_VISIBLE,
     });
-
-    stackEl.appendChild(toast);
-    pruneToasts(stackEl);
-
-    window.setTimeout(() => {
-        toast.remove();
-    }, TOAST_LIFETIME_MS);
 }
 
 function handleNotifyMessage(message = {}) {

@@ -1,4 +1,5 @@
-const API_BASE = window.location.origin;
+const { requestJson, formatTime, sanitizeToastBody, createToast } = window.CareClick || {};
+const API_BASE = window.CareClick?.API_BASE || window.location.origin;
 const TOAST_LIFETIME_MS = 5000;
 const TOAST_MAX_VISIBLE = 3;
 const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
@@ -110,39 +111,21 @@ async function logoutUser() {
     window.location.href = 'Login.html';
 }
 
+async function apiRequest(path, options = {}) {
+    return requestJson(path, options, {
+        onUnauthorized: () => {
+            window.location.href = "Login.html";
+        },
+    });
+}
+
 async function requireAuth() {
     try {
-        const response = await fetch(`${API_BASE}/api/users/me`, {
-            method: "GET",
-            credentials: "include",
-        });
-
-        if (response.status === 401 || response.status === 403) {
-            window.location.href = "Login.html";
-            return;
-        }
-
-        if (response.ok) {
-            const data = await response.json();
-            currentUserId = data?.user?._id || null;
-        }
+        const data = await apiRequest("/api/users/me");
+        currentUserId = data?.user?._id || null;
     } catch (_error) {
         window.location.href = "Login.html";
     }
-}
-
-function formatToastTime(value) {
-    if (!value) return "";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-function sanitizeToastBody(text) {
-    const trimmed = String(text || "").trim();
-    if (!trimmed) return "Tap to open chat";
-    if (trimmed.length <= 80) return trimmed;
-    return `${trimmed.slice(0, 77)}...`;
 }
 
 function openChatWithUserId(userId) {
@@ -151,49 +134,16 @@ function openChatWithUserId(userId) {
     window.location.href = "Profile.html";
 }
 
-function pruneToasts(stackEl) {
-    const toasts = stackEl.querySelectorAll(".toast");
-    if (toasts.length <= TOAST_MAX_VISIBLE) return;
-    const extra = Array.from(toasts).slice(0, toasts.length - TOAST_MAX_VISIBLE);
-    extra.forEach((toast) => toast.remove());
-}
-
 function showMessageToast({ senderName, body, createdAt, senderId }) {
-    const stackEl = document.getElementById("toast-stack");
-    if (!stackEl) return;
-
-    const toast = document.createElement("button");
-    toast.type = "button";
-    toast.className = "toast";
-
-    const title = document.createElement("div");
-    title.className = "toast-title";
-    title.textContent = senderName ? `New message from ${senderName}` : "New message received";
-
-    const message = document.createElement("div");
-    message.className = "toast-body";
-    message.textContent = sanitizeToastBody(body);
-
-    const time = document.createElement("div");
-    time.className = "toast-time";
-    time.textContent = formatToastTime(createdAt);
-
-    toast.appendChild(title);
-    toast.appendChild(message);
-    if (time.textContent) {
-        toast.appendChild(time);
-    }
-
-    toast.addEventListener("click", () => {
-        openChatWithUserId(senderId);
+    const title = senderName ? `New message from ${senderName}` : "New message received";
+    createToast({
+        title,
+        body: sanitizeToastBody(body),
+        time: formatTime(createdAt),
+        onClick: () => openChatWithUserId(senderId),
+        lifetimeMs: TOAST_LIFETIME_MS,
+        maxVisible: TOAST_MAX_VISIBLE,
     });
-
-    stackEl.appendChild(toast);
-    pruneToasts(stackEl);
-
-    window.setTimeout(() => {
-        toast.remove();
-    }, TOAST_LIFETIME_MS);
 }
 
 function handleChatNotify(payload = {}) {
@@ -226,20 +176,7 @@ async function fetchNotifications() {
             params.set("since", lastNotifyAt);
         }
         const query = params.toString() ? `?${params.toString()}` : "";
-        const response = await fetch(`${API_BASE}/api/messages/notifications${query}`, {
-            credentials: "include",
-        });
-
-        if (response.status === 401 || response.status === 403) {
-            window.location.href = "Login.html";
-            return;
-        }
-
-        if (!response.ok) {
-            throw new Error("Failed to fetch notifications");
-        }
-
-        const data = await response.json();
+        const data = await apiRequest(`/api/messages/notifications${query}`);
         const messages = Array.isArray(data?.messages) ? data.messages : [];
         messages.forEach(handleNotifyMessage);
         if (data?.nextSince) {

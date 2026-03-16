@@ -32,9 +32,16 @@ function cleanEmail(emailAddress = "") {
   return emailAddress.trim().toLowerCase();
 }
 
+function getOtpExpiryMinutes() {
+  const minutes = Number(process.env.OTP_EXPIRES_MINUTES);
+  if (Number.isFinite(minutes) && minutes > 0) {
+    return minutes;
+  }
+  return DEFAULT_OTP_EXP_MINUTES;
+}
+
 function otpExpiresMs() {
-  const minutes = Number(process.env.OTP_EXPIRES_MINUTES) || DEFAULT_OTP_EXP_MINUTES;
-  return Math.max(1, minutes) * 60 * 1000;
+  return getOtpExpiryMinutes() * 60 * 1000;
 }
 
 function hashOtp(code) {
@@ -64,25 +71,27 @@ function getTransporter() {
   return mailTransporter;
 }
 
-async function sendOtpEmail(toEmail, code) {
-  const transporter = getTransporter();
-  await transporter.sendMail({
-    from: process.env.GMAIL_USER,
-    to: toEmail,
-    subject: "Your CareClick Verification Code",
-    text: `Your CareClick verification code is ${code}. It expires in ${Number(process.env.OTP_EXPIRES_MINUTES) || DEFAULT_OTP_EXP_MINUTES} minutes.`,
-    html: `<p>Your CareClick verification code is <strong>${code}</strong>.</p><p>It expires in ${Number(process.env.OTP_EXPIRES_MINUTES) || DEFAULT_OTP_EXP_MINUTES} minutes.</p>`,
-  });
+function buildOtpEmailContent(code, purpose) {
+  const minutes = getOtpExpiryMinutes();
+  const isPasswordReset = purpose === "password-reset";
+  const label = isPasswordReset ? "password reset" : "verification";
+
+  return {
+    subject: isPasswordReset
+      ? "Your CareClick Password Reset Code"
+      : "Your CareClick Verification Code",
+    text: `Your CareClick ${label} code is ${code}. It expires in ${minutes} minutes.`,
+    html: `<p>Your CareClick ${label} code is <strong>${code}</strong>.</p><p>It expires in ${minutes} minutes.</p>`,
+  };
 }
 
-async function sendPasswordResetEmail(toEmail, code) {
+async function sendOtpEmail(toEmail, code, purpose) {
   const transporter = getTransporter();
+  const content = buildOtpEmailContent(code, purpose);
   await transporter.sendMail({
     from: process.env.GMAIL_USER,
     to: toEmail,
-    subject: "Your CareClick Password Reset Code",
-    text: `Your CareClick password reset code is ${code}. It expires in ${Number(process.env.OTP_EXPIRES_MINUTES) || DEFAULT_OTP_EXP_MINUTES} minutes.`,
-    html: `<p>Your CareClick password reset code is <strong>${code}</strong>.</p><p>It expires in ${Number(process.env.OTP_EXPIRES_MINUTES) || DEFAULT_OTP_EXP_MINUTES} minutes.</p>`,
+    ...content,
   });
 }
 
@@ -153,7 +162,7 @@ router.post("/signup/request-code", async (req, res) => {
       resendAvailableAt: now + OTP_RESEND_COOLDOWN_MS,
     });
 
-    await sendOtpEmail(normalizedEmail, code);
+    await sendOtpEmail(normalizedEmail, code, "verification");
     return res.json({ message: "Verification code sent to email" });
   } catch (error) {
     return res.status(500).json({ message: "Unable to send verification code" });
@@ -184,7 +193,7 @@ router.post("/signup/resend-code", async (req, res) => {
     pending.resendAvailableAt = now + OTP_RESEND_COOLDOWN_MS;
     pendingSignups.set(normalizedEmail, pending);
 
-    await sendOtpEmail(normalizedEmail, code);
+    await sendOtpEmail(normalizedEmail, code, "verification");
     return res.json({ message: "Verification code resent" });
   } catch (_error) {
     return res.status(500).json({ message: "Unable to resend verification code" });
@@ -284,7 +293,7 @@ router.post("/password/request-code", async (req, res) => {
       resendAvailableAt: now + OTP_RESEND_COOLDOWN_MS,
     });
 
-    await sendPasswordResetEmail(normalizedEmail, code);
+    await sendOtpEmail(normalizedEmail, code, "password-reset");
     return res.json({ message: "Password reset code sent to email" });
   } catch (_error) {
     return res.status(500).json({ message: "Unable to send password reset code" });
@@ -317,7 +326,7 @@ router.post("/password/resend-code", async (req, res) => {
     pending.resendAvailableAt = now + OTP_RESEND_COOLDOWN_MS;
     pendingPasswordResets.set(normalizedEmail, pending);
 
-    await sendPasswordResetEmail(normalizedEmail, code);
+    await sendOtpEmail(normalizedEmail, code, "password-reset");
     return res.json({ message: "Password reset code resent" });
   } catch (_error) {
     return res.status(500).json({ message: "Unable to resend password reset code" });

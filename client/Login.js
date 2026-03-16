@@ -1,4 +1,5 @@
-const API_BASE = window.location.origin;
+const { requestJson } = window.CareClick || {};
+const API_BASE = window.CareClick?.API_BASE || window.location.origin;
 let countdownInterval = null;
 let pendingSignupEmail = "";
 let pendingForgotEmail = "";
@@ -54,26 +55,11 @@ function clearOtpInputs() {
     }
 }
 
-async function requestJson(path, payload) {
-    const response = await fetch(`${API_BASE}${path}`, {
+async function postJson(path, payload) {
+    return requestJson(path, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(payload),
     });
-
-    let data = {};
-    try {
-        data = await response.json();
-    } catch (_error) {
-        data = {};
-    }
-
-    if (!response.ok) {
-        throw new Error(data.message || "Request failed");
-    }
-
-    return data;
 }
 
 async function handleLogin(event) {
@@ -89,7 +75,7 @@ async function handleLogin(event) {
     }
 
     try {
-        const data = await requestJson("/api/auth/login", { emailAddress, password });
+        const data = await postJson("/api/auth/login", { emailAddress, password });
         window.location.href = "Home.html";
     } catch (error) {
         setMessage("login-message", error.message, true);
@@ -126,7 +112,7 @@ async function handleSignup(event) {
     signupInFlight = true;
 
     try {
-        await requestJson("/api/auth/signup/request-code", {
+        await postJson("/api/auth/signup/request-code", {
             userName,
             emailAddress,
             password,
@@ -188,7 +174,7 @@ async function handleResendSignupCode() {
     }
 
     try {
-        await requestJson("/api/auth/signup/resend-code", { emailAddress: pendingSignupEmail });
+        await postJson("/api/auth/signup/resend-code", { emailAddress: pendingSignupEmail });
         setMessage("verify-message", "A new code has been sent.");
         clearOtpInputs();
         startResendTimer("signup-resend-btn", "signup-timer-display");
@@ -215,7 +201,7 @@ async function handleVerify() {
     }
 
     try {
-        const data = await requestJson("/api/auth/signup/verify-code", {
+        const data = await postJson("/api/auth/signup/verify-code", {
             emailAddress: pendingSignupEmail,
             code,
         });
@@ -242,7 +228,7 @@ async function handleForgotCodeRequest() {
     forgotCodeInFlight = true;
 
     try {
-        await requestJson("/api/auth/password/request-code", { emailAddress });
+        await postJson("/api/auth/password/request-code", { emailAddress });
         pendingForgotEmail = emailAddress;
         setMessage("forgot-message", "A verification code has been sent to your email.");
         startResendTimer("forgot-resend-btn", "forgot-timer-display");
@@ -283,7 +269,7 @@ async function handleForgotPassword(event) {
     }
 
     try {
-        await requestJson("/api/auth/password/reset", {
+        await postJson("/api/auth/password/reset", {
             emailAddress,
             newPassword,
             confirmPassword,

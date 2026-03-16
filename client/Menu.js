@@ -1,12 +1,12 @@
 const API_BASE = window.location.origin;
-const PRESENCE_PING_MS = 10000;
 const TOAST_LIFETIME_MS = 5000;
 const TOAST_MAX_VISIBLE = 3;
 const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
+const NOTIFY_POLL_MS = 5000;
 let currentUserId = null;
 const seenNotifyMessageIds = new Set();
-let socket = null;
-let presencePingId = null;
+let notifyPollId = null;
+let lastNotifyAt = null;
 const menuView = document.getElementById('menu-view');
 const notificationView = document.getElementById('notification-view');
 const privacyView = document.getElementById('privacy-view');
@@ -76,7 +76,9 @@ function showMenu() {
     bottomNav.style.display = 'flex'; 
     backBtn.style.display = 'none';
     headerTitle.innerText = 'Menu';
-    termsView.style.display = 'none';
+    if (termsView) {
+        termsView.style.display = 'none';
+    }
     
 }
 
@@ -91,7 +93,9 @@ function hideAllViews() {
     supportView.style.display = 'none'; // Added
     bottomNav.style.display = 'none'; 
     backBtn.style.display = 'block';
-    termsView.style.display = 'none';
+    if (termsView) {
+        termsView.style.display = 'none';
+    }
 }
 
 async function logoutUser() {
@@ -210,47 +214,58 @@ function handleChatNotify(payload = {}) {
     });
 }
 
-function startPresencePing() {
-    if (presencePingId) return;
-    if (socket && socket.connected) {
-        socket.emit("presence:ping");
-    }
-    presencePingId = setInterval(() => {
-        if (socket && socket.connected) {
-            socket.emit("presence:ping");
+function handleNotifyMessage(message = {}) {
+    if (!message?._id) return;
+    handleChatNotify({ message });
+}
+
+async function fetchNotifications() {
+    try {
+        const params = new URLSearchParams();
+        if (lastNotifyAt) {
+            params.set("since", lastNotifyAt);
         }
-    }, PRESENCE_PING_MS);
-}
+        const query = params.toString() ? `?${params.toString()}` : "";
+        const response = await fetch(`${API_BASE}/api/messages/notifications${query}`, {
+            credentials: "include",
+        });
 
-function stopPresencePing() {
-    if (presencePingId) {
-        clearInterval(presencePingId);
-        presencePingId = null;
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = "Login.html";
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error("Failed to fetch notifications");
+        }
+
+        const data = await response.json();
+        const messages = Array.isArray(data?.messages) ? data.messages : [];
+        messages.forEach(handleNotifyMessage);
+        if (data?.nextSince) {
+            lastNotifyAt = data.nextSince;
+        }
+    } catch (error) {
+        console.error("Notification poll failed:", error.message);
     }
 }
 
-function startSocketConnection() {
-    if (typeof io === "undefined") return;
-    if (socket) return;
-
-    socket = io(API_BASE, { withCredentials: true });
-
-    socket.on("connect", () => {
-        startPresencePing();
-    });
-
-    socket.on("chat:notify", (payload = {}) => {
-        handleChatNotify(payload);
-    });
-
-    socket.on("disconnect", () => {
-        stopPresencePing();
-    });
-
-    socket.on("connect_error", (error) => {
-        console.error("Socket connection failed:", error.message);
-    });
+function startNotificationPolling() {
+    if (notifyPollId) return;
+    if (!lastNotifyAt) {
+        lastNotifyAt = new Date().toISOString();
+    }
+    fetchNotifications();
+    notifyPollId = setInterval(fetchNotifications, NOTIFY_POLL_MS);
 }
+
+function stopNotificationPolling() {
+    if (notifyPollId) {
+        clearInterval(notifyPollId);
+        notifyPollId = null;
+    }
+}
+
 
 // Logic for Language Selection
 document.querySelectorAll('.language-item').forEach(item => {
@@ -270,5 +285,9 @@ menuItems.forEach((item) => {
 
 document.addEventListener("DOMContentLoaded", () => {
     requireAuth();
-    startSocketConnection();
+    startNotificationPolling();
+});
+
+window.addEventListener("beforeunload", () => {
+    stopNotificationPolling();
 });

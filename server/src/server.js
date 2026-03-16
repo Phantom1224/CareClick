@@ -1,10 +1,8 @@
 const path = require("path");
 const express = require("express");
-const http = require("http");
 const dotenv = require("dotenv");
 const connectDB = require("./config/connectDB");
 const createApp = require("./app");
-const { initSocket } = require("./socket");
 
 dotenv.config();
 
@@ -28,10 +26,7 @@ app.use((_req, res) => {
 
 async function start() {
   await connectDB(process.env.MONGO_URI);
-  const server = http.createServer(app);
-  initSocket(server);
-
-  server.listen(port, () => {
+  app.listen(port, () => {
     // Keep startup logs compact and readable.
     console.log(`Server running on http://localhost:${port}`);
   });

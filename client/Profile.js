@@ -1,20 +1,21 @@
 const API_BASE = window.location.origin;
 const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
-const PRESENCE_PING_MS = 10000;
 const TOAST_LIFETIME_MS = 5000;
 const TOAST_MAX_VISIBLE = 3;
+const NOTIFY_POLL_MS = 5000;
 
 let currentUserId = null;
+let conversationPollId = null;
+let messagePollId = null;
 let activeConversationId = null;
 let lastMessageCursor = null;
 const conversationCache = new Map();
 let allUsers = [];
 let searchTerm = "";
-let socket = null;
-let presencePingId = null;
-let activeConversationRoom = null;
 let activeMessageIds = new Set();
 const seenNotifyMessageIds = new Set();
+let notifyPollId = null;
+let lastNotifyAt = null;
 
 function authHeaders() {
     return {
@@ -40,10 +41,6 @@ async function apiRequest(path, options = {}) {
     }
 
     if (response.status === 401) {
-        if (socket) {
-            socket.disconnect();
-            socket = null;
-        }
         window.location.href = "Login.html";
         throw new Error("Session expired");
     }
@@ -177,6 +174,11 @@ function handleChatNotify(payload = {}) {
         createdAt: message.createdAt,
         senderId: message.senderId,
     });
+}
+
+function handleNotifyMessage(message = {}) {
+    if (!message?._id) return;
+    handleChatNotify({ message });
 }
 
 function buildAvatarText(name = "") {
@@ -397,11 +399,17 @@ async function startConversationWithUser(userId) {
 }
 
 function startConversationPolling() {
+    stopConversationPolling();
     loadConversations();
     loadUserDirectory();
+    conversationPollId = setInterval(loadConversations, 5000);
 }
 
 function stopConversationPolling() {
+    if (conversationPollId) {
+        clearInterval(conversationPollId);
+        conversationPollId = null;
+    }
 }
 
 function setChatHeader(conversation) {
@@ -486,9 +494,48 @@ function startMessagePolling() {
     if (!activeConversationId) return;
     lastMessageCursor = null;
     loadMessages({ reset: true });
+    messagePollId = setInterval(() => loadMessages({ reset: false }), 5000);
 }
 
 function stopMessagePolling() {
+    if (messagePollId) {
+        clearInterval(messagePollId);
+        messagePollId = null;
+    }
+}
+
+async function fetchNotifications() {
+    try {
+        const params = new URLSearchParams();
+        if (lastNotifyAt) {
+            params.set("since", lastNotifyAt);
+        }
+        const query = params.toString() ? `?${params.toString()}` : "";
+        const data = await apiRequest(`/api/messages/notifications${query}`);
+        const messages = Array.isArray(data?.messages) ? data.messages : [];
+        messages.forEach(handleNotifyMessage);
+        if (data?.nextSince) {
+            lastNotifyAt = data.nextSince;
+        }
+    } catch (error) {
+        console.error("Notification poll failed:", error.message);
+    }
+}
+
+function startNotificationPolling() {
+    if (notifyPollId) return;
+    if (!lastNotifyAt) {
+        lastNotifyAt = new Date().toISOString();
+    }
+    fetchNotifications();
+    notifyPollId = setInterval(fetchNotifications, NOTIFY_POLL_MS);
+}
+
+function stopNotificationPolling() {
+    if (notifyPollId) {
+        clearInterval(notifyPollId);
+        notifyPollId = null;
+    }
 }
 
 async function sendMessage() {
@@ -507,7 +554,7 @@ async function sendMessage() {
         );
         input.value = "";
         const message = data?.message;
-        if (message && (!socket || !socket.connected)) {
+        if (message) {
             renderMessageBubble(message);
             lastMessageCursor = message.createdAt;
             scrollChatToBottom();
@@ -525,7 +572,6 @@ function openMessages() {
     stopMessagePolling();
     startConversationPolling();
     setSearchMode(false);
-    leaveActiveConversationRoom();
     window.scrollTo(0, 0);
 }
 
@@ -554,7 +600,6 @@ function openProfile() {
     showElement("brand-header");
     stopMessagePolling();
     stopConversationPolling();
-    leaveActiveConversationRoom();
     window.scrollTo(0, 0);
 }
 
@@ -573,7 +618,6 @@ function openChatByConversationId(conversationId) {
     setChatHeader(conversation);
     stopConversationPolling();
     startMessagePolling();
-    joinConversationRoom(conversationId);
     window.scrollTo(0, 0);
 }
 
@@ -607,39 +651,6 @@ function showElement(id) {
     if (el) el.classList.remove("hidden");
 }
 
-function startPresencePing() {
-    if (presencePingId) return;
-    if (socket && socket.connected) {
-        socket.emit("presence:ping");
-    }
-    presencePingId = setInterval(() => {
-        if (socket && socket.connected) {
-            socket.emit("presence:ping");
-        }
-    }, PRESENCE_PING_MS);
-}
-
-function stopPresencePing() {
-    if (presencePingId) {
-        clearInterval(presencePingId);
-        presencePingId = null;
-    }
-}
-
-function joinConversationRoom(conversationId) {
-    if (!socket || !socket.connected || !conversationId) return;
-    if (activeConversationRoom === conversationId) return;
-    leaveActiveConversationRoom();
-    socket.emit("chat:join", { conversationId });
-    activeConversationRoom = conversationId;
-}
-
-function leaveActiveConversationRoom() {
-    if (!socket || !socket.connected || !activeConversationRoom) return;
-    socket.emit("chat:leave", { conversationId: activeConversationRoom });
-    activeConversationRoom = null;
-}
-
 function applyConversationUpdate(conversation) {
     const normalized = normalizeConversation(conversation);
     if (!normalized?._id) return;
@@ -649,80 +660,6 @@ function applyConversationUpdate(conversation) {
     if (normalized._id === activeConversationId) {
         setChatHeader(normalized);
     }
-}
-
-function applyPresenceUpdate(payload = {}) {
-    const targetId = payload.userId ? String(payload.userId) : "";
-    if (!targetId) return;
-    let updated = false;
-
-    conversationCache.forEach((conversation, key) => {
-        if (String(conversation?.otherUser?._id) !== targetId) return;
-        conversation.otherUser = {
-            ...conversation.otherUser,
-            isOnline: Boolean(payload.isOnline),
-            lastSeenAt: payload.lastSeenAt || conversation.otherUser?.lastSeenAt || null,
-        };
-        conversationCache.set(key, conversation);
-        updated = true;
-        if (String(conversation._id) === String(activeConversationId)) {
-            setChatHeader(conversation);
-        }
-    });
-
-    if (updated) {
-        renderConversationCache();
-    }
-}
-
-function handleIncomingMessage(message) {
-    if (!message?._id) return;
-    if (message.conversationId && String(message.conversationId) !== String(activeConversationId)) {
-        return;
-    }
-    if (activeMessageIds.has(message._id)) return;
-    activeMessageIds.add(message._id);
-    renderMessageBubble(message);
-    lastMessageCursor = message.createdAt;
-    scrollChatToBottom();
-}
-
-function startSocketConnection() {
-    if (typeof io === "undefined") return;
-    if (socket) return;
-
-    socket = io(API_BASE, { withCredentials: true });
-
-    socket.on("connect", () => {
-        startPresencePing();
-        if (activeConversationId) {
-            joinConversationRoom(activeConversationId);
-        }
-    });
-
-    socket.on("chat:conversation:update", (payload = {}) => {
-        applyConversationUpdate(payload.conversation);
-    });
-
-    socket.on("chat:message", (payload = {}) => {
-        handleIncomingMessage(payload.message);
-    });
-
-    socket.on("chat:notify", (payload = {}) => {
-        handleChatNotify(payload);
-    });
-
-    socket.on("chat:presence:update", (payload = {}) => {
-        applyPresenceUpdate(payload);
-    });
-
-    socket.on("disconnect", () => {
-        stopPresencePing();
-    });
-
-    socket.on("connect_error", (error) => {
-        console.error("Socket connection failed:", error.message);
-    });
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -762,5 +699,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         startConversationWithUser(pendingUserId);
     }
 
-    startSocketConnection();
+    startNotificationPolling();
+});
+
+window.addEventListener("beforeunload", () => {
+    stopNotificationPolling();
 });

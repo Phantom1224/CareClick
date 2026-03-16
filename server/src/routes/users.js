@@ -1,7 +1,6 @@
 const express = require("express");
 const requireAuth = require("../middleware/requireAuth");
 const User = require("../models/User");
-const { emitLocationFeed, getIO } = require("../socket");
 
 const router = express.Router();
 const ONLINE_WINDOW_MS = 15000;
@@ -46,12 +45,6 @@ router.patch("/me/location", requireAuth, async (req, res) => {
     user.lastSeenAt = now;
     await user.save();
 
-    try {
-      await emitLocationFeed(getIO());
-    } catch (_error) {
-      // Socket server might not be initialized in tests.
-    }
-
     return res.json({ userLocation: user.userLocation });
   } catch (_error) {
     return res.status(500).json({ message: "Unable to update location" });
@@ -69,12 +62,6 @@ router.patch("/me/requesting", requireAuth, async (req, res) => {
     );
     if (!user) {
       return res.status(404).json({ message: "User not found" });
-    }
-
-    try {
-      await emitLocationFeed(getIO());
-    } catch (_error) {
-      // Socket server might not be initialized in tests.
     }
 
     return res.json({ isRequesting: user.isRequesting });

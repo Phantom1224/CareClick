@@ -4,7 +4,6 @@ const requireAuth = require("../middleware/requireAuth");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const User = require("../models/User");
-const { emitToUser, emitToConversation } = require("../socket");
 
 const router = express.Router();
 const ONLINE_WINDOW_MS = 15000;
@@ -109,18 +108,6 @@ router.get("/conversations/with/:otherUserId", requireAuth, async (req, res) => 
         .lean();
     }
 
-    try {
-      const now = new Date();
-      const participantIds = conversation.participants.map((participant) => participant._id);
-      participantIds.forEach((participantId) => {
-        emitToUser(participantId, "chat:conversation:update", {
-          conversation: buildConversationSummary(conversation, String(participantId), now),
-        });
-      });
-    } catch (_error) {
-      // Socket server might not be initialized in tests.
-    }
-
     return res.json({ conversation });
   } catch (_error) {
     return res.status(500).json({ message: "Unable to start conversation" });
@@ -174,6 +161,55 @@ router.get("/conversations/:conversationId/messages", requireAuth, async (req, r
   }
 });
 
+router.get("/notifications", requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const since = toDate(req.query.since);
+    if (req.query.since && !since) {
+      return res.status(400).json({ message: "Invalid since timestamp" });
+    }
+
+    const limit = Math.min(Number(req.query.limit) || 50, MAX_LIMIT);
+    const conversations = await Conversation.find(
+      { participants: userId },
+      { _id: 1 }
+    ).lean();
+    const conversationIds = conversations.map((conversation) => conversation._id);
+
+    if (!conversationIds.length) {
+      return res.json({ messages: [], nextSince: since || null });
+    }
+
+    const query = {
+      conversation: { $in: conversationIds },
+      sender: { $ne: userId },
+    };
+    if (since) {
+      query.createdAt = { $gt: since };
+    }
+
+    const messages = await Message.find(query)
+      .sort({ createdAt: 1 })
+      .limit(limit)
+      .populate("sender", "userName")
+      .lean();
+
+    const payload = messages.map((message) => ({
+      _id: message._id,
+      body: message.body,
+      senderId: message.sender?._id || message.sender,
+      senderName: message.sender?.userName || "User",
+      createdAt: message.createdAt,
+      conversationId: message.conversation,
+    }));
+
+    const nextSince = messages.length ? messages[messages.length - 1].createdAt : since || null;
+    return res.json({ messages: payload, nextSince });
+  } catch (_error) {
+    return res.status(500).json({ message: "Unable to load notifications" });
+  }
+});
+
 router.post("/conversations/:conversationId/messages", requireAuth, async (req, res) => {
   try {
     const userId = req.auth.userId;
@@ -206,43 +242,6 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
     conversation.lastMessageText = body;
     conversation.lastMessageAt = message.createdAt;
     await conversation.save();
-
-    try {
-      const populated = await Conversation.findById(conversation._id)
-        .populate("participants", "userName emailAddress lastSeenAt")
-        .lean();
-      const now = new Date();
-      const messagePayload = {
-        _id: message._id,
-        body: message.body,
-        senderId: message.sender,
-        createdAt: message.createdAt,
-        conversationId: conversation._id,
-      };
-
-      emitToConversation(conversation._id, "chat:message", { message: messagePayload });
-
-      if (populated) {
-        const sender = populated.participants.find(
-          (participant) => String(participant._id) === String(message.sender)
-        );
-        const notifyPayload = {
-          message: {
-            ...messagePayload,
-            senderName: sender?.userName || "User",
-          },
-        };
-        const participantIds = populated.participants.map((participant) => participant._id);
-        participantIds.forEach((participantId) => {
-          emitToUser(participantId, "chat:conversation:update", {
-            conversation: buildConversationSummary(populated, String(participantId), now),
-          });
-          emitToUser(participantId, "chat:notify", notifyPayload);
-        });
-      }
-    } catch (_error) {
-      // Socket server might not be initialized in tests.
-    }
 
     return res.status(201).json({
       message: {

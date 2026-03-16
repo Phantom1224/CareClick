@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CareClick - Menu</title>
+    <title>CareClick Menu</title>
     <link rel="stylesheet" href="Menu.css">
 </head>
 <body>
-
-    <div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
 
     <header class="header-container">
         <h1 class="logo">Care<span>Click</span></h1>
@@ -19,25 +17,73 @@
     </header>
 
     <main class="menu-content" id="menu-view">
+        <div class="menu-item" onclick="showNotifications()">
+            <div class="icon-box bg-blue">
+                <img src="Notification.png" alt="Notification" />
+            </div>
+            <div class="item-label">Notification Settings</div>
+            <div class="chevron">›</div>
+        </div>
+
+        <div class="menu-item" onclick="showPrivacy()">
+            <div class="icon-box bg-blue">
+                  <img src="Lock 2.png" alt="Privacy" />
+            </div>
+            <div class="item-label">Privacy Settings</div>
+            <div class="chevron">›</div>
+        </div>
+
+        <div class="menu-item" onclick="showSecurity()">
+            <div class="icon-box bg-green">
+                 <img src="Security 2.png" alt="Security" />
+            </div>
+            <div class="item-label">Account Security</div>
+            <div class="chevron">›</div>
+        </div>
+
+        <div class="menu-item" onclick="showLanguage()">
+            <div class="icon-box bg-yellow">
+                 <img src="Language.png" alt="Language" />
+            </div>
+            <div class="item-label">Language</div>
+            <div class="chevron">›</div>
+        </div>
+
+        <div class="menu-item" onclick="showHelp()">
+            <div class="icon-box bg-orange">
+                 <img src="Help.png" alt="Help" />
+            </div>
+            <div class="item-label">Help</div>
+            <div class="chevron">›</div>
+        </div>
 
         <div class="menu-item" onclick="showAbout()">
             <div class="icon-box bg-cyan">
-                  <img src="Icon/About.png" alt="About" />
+                  <img src="About.png" alt="About" />
             </div>
             <div class="item-label">About CareClick</div>
             <div class="chevron">›</div>
         </div>
 
-        <div class="menu-item" onclick="window.location.href='mailto:careclickwup@gmail.com'">
+        <div class="menu-item" onclick="showSupport()">
             <div class="icon-box bg-pink">
-                 <img src="Icon/Support.png" alt="Support" />
+                 <img src="Support.png" alt="Support" />
             </div>
             <div class="item-label">Contact Support</div>
             <div class="chevron">›</div>
         </div>
+
+      <div class="menu-item" onclick="showTerms()">
+    <div class="icon-box bg-grey">
+        <img src="Terms.png" alt="Terms" />
+            </div>
+    <div class="item-label">Terms & Conditions</div>
+    <div class="chevron">›</div>
+</div>
+
         <div class="menu-item" style="margin-top: 10px;">
             <div class="icon-box bg-red">
-                <img src="Icon/Log out.png" alt="Log Out" />
+                 <img src="Log out.png" alt="Log Out" />
             </div>
             <div class="item-label" style="color: #e53e3e;">Log Out</div>
             <div class="chevron" style="color: #e53e3e;">›</div>
@@ -50,7 +96,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Push.png" alt="Terms" />
+                <img src="Push.png" alt="Terms" />
             </div>
             <div class="item-info">
                 <span class="main-text">Push Notifications</span>
@@ -63,7 +109,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Location 3.png" alt="Terms" />
+                <img src="Location 3.png" alt="Terms" />
             </div>
             <div class="item-info">
                 <span class="main-text">Location-Based Alerts</span>
@@ -74,7 +120,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Mail 4.png" alt="Terms" />
+                <img src="Mail 4.png" alt="Terms" />
             </div>
             <div class="item-info">
                 <span class="main-text">Email Notifications</span>
@@ -85,7 +131,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-               <img src="Icon/Privacy 2.png" alt="Terms" style="width: 20px; height: 20px;">
+               <img src="Privacy 2.png" alt="Terms" style="width: 20px; height: 20px;">
             </div>
             <div class="item-info">
                 <span class="main-text">Privacy & Security</span>
@@ -102,7 +148,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                 <img src="Icon/Data.png" alt="Terms" />
+                 <img src="Data.png" alt="Terms" />
             </div>
             <div class="item-info">
                 <span class="main-text">Data Sharing</span>
@@ -113,7 +159,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Location 3.png" alt="Terms" />
+                <img src="Location 3.png" alt="Terms" />
             </div>
             <div class="item-info">
                 <span class="main-text">Location Access</span>
@@ -124,7 +170,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Security 2.png" alt="Terms" />
+                <img src="Security 2.png" alt="Terms" />
             </div>
             <div class="item-info">
                 <span class="main-text">App Permissions</span>
@@ -137,7 +183,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                 <img src="Icon/Activity.png" alt="Terms" />
+                 <img src="Activity.png" alt="Terms" />
             </div>  
             <div class="item-info">
                 <span class="main-text">Activity Tracking</span>
@@ -148,7 +194,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                 <img src="Icon/Block.png" alt="Terms" />
+                 <img src="Block.png" alt="Terms" />
             </div>  
             <div class="item-info">
                 <span class="main-text">Blocked Contacts</span>
@@ -159,7 +205,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Ad.png" alt="Terms" />
+                <img src="Ad.png" alt="Terms" />
             </div>  
             <div class="item-info">
                 <span class="main-text">Ad Personalization</span>
@@ -172,7 +218,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Lock 3.png" alt="Terms" />
+                <img src="Lock 3.png" alt="Terms" />
             </div>  
             <div class="item-info">
                 <span class="main-text">Two-Factor Authentication</span>
@@ -183,7 +229,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                 <img src="Icon/Key.png" alt="Terms" />
+                 <img src="Key.png" alt="Terms" />
             </div>  
             <div class="item-info">
                 <span class="main-text">Password & Security</span>
@@ -194,7 +240,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Privacy.png" alt="Terms" />
+                <img src="Privacy.png" alt="Terms" />
             </div>  
             <div class="item-info">
                 <span class="main-text">Privacy Policy</span>
@@ -210,7 +256,7 @@
         <div class="security-card">
             <div class="security-status-header">
                 <div class="icon-box bg-light-green" style="margin: 0;">
-                    <img src="Icon/Security 2.png" alt="Terms" />
+                    <img src="Security 2.png" alt="Terms" />
             </div> 
                 <div class="status-content">
                     <h3>Account Protected</h3>
@@ -229,7 +275,7 @@
         <div class="section-label">Security Controls</div>
         <div class="setting-item">
             <div class="icon-box bg-grey">
-                <img src="Icon/Key 2.png" alt="Terms" />
+                <img src="Key 2.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Change Password</span>
@@ -240,7 +286,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-grey">
-                <img src="Icon/Biometric.png" alt="Terms" />
+                <img src="Biometric.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Biometric Login</span>
@@ -252,7 +298,7 @@
         <div class="section-label">Activity & Devices</div>
         <div class="setting-item">
             <div class="icon-box bg-grey">
-                <img src="Icon/Device.png" alt="Terms" />
+                <img src="Device.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Trusted Devices</span>
@@ -264,7 +310,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-red" style="background: #e9aaaa;">
-                 <img src="Icon/Alert.png" alt="Terms" />
+                 <img src="Alert.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Security Alerts</span>
@@ -275,7 +321,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-grey">
-                 <img src="Icon/Recovery.png" alt="Terms" />
+                 <img src="Recovery.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Recovery Options</span>
@@ -293,7 +339,7 @@
 
         <div class="setting-item language-item selected">
             <div class="icon-box bg-light-green">
-                 <img src="Icon/Language 2.png" alt="Terms" />
+                 <img src="Language 2.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">English</span>
@@ -304,7 +350,7 @@
 
         <div class="setting-item language-item">
             <div class="icon-box bg-blue">
-            <img src="Icon/Language 3.png" alt="Terms" />
+            <img src="Language 3.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Español</span>
@@ -315,7 +361,7 @@
 
         <div class="setting-item language-item">
             <div class="icon-box bg-purple">
-                 <img src="Icon/Language 4.png" alt="Terms" />
+                 <img src="Language 4.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Français</span>
@@ -326,7 +372,7 @@
 
         <div class="setting-item language-item">
             <div class="icon-box bg-yellow">
-                <img src="Icon/Language 5.png" alt="Terms" />
+                <img src="Language 5.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Deutsch</span>
@@ -337,7 +383,7 @@
 
         <div class="setting-item language-item">
             <div class="icon-box bg-pink">
-                 <img src="Icon/Language 6.png" alt="Terms" />
+                 <img src="Language 6.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">한국어</span>
@@ -348,7 +394,7 @@
 
         <div class="setting-item language-item">
             <div class="icon-box bg-cyan">
-                 <img src="Icon/Language 7.png" alt="Terms" />
+                 <img src="Language 7.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">日本語</span>
@@ -375,7 +421,9 @@
                 <h2 style="font-size: 1.4rem; font-weight: 800; margin: 0;">Help</h2>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">How can we help you?</p>
                 <div class="search-input-wrapper">
-                    <span class="search-icon-fixed"></span>
+                    <span class="search-icon-fixed">
+
+            </div> 
                     <input type="text" class="help-search-bar" placeholder="Search for topics or questions">
                 </div>
             </div>
@@ -383,42 +431,42 @@
             <div class="section-label">Help Topics</div>
             <div class="menu-item">
                 <div class="icon-box bg-light-green">
-                     <img src="Icon/Rocket.png" alt="Terms" />
+                     <img src="Rocket.png" alt="Terms" />
             </div> 
                 <div class="item-label">Getting Started</div>
                 <div class="chevron">›</div>
             </div>
             <div class="menu-item">
                 <div class="icon-box bg-blue">
-                    <img src="Icon/Star.png" alt="Terms" />
+                    <img src="Star.png" alt="Terms" />
             </div> 
                 <div class="item-label">Using CareClick Features</div>
                 <div class="chevron">›</div>
             </div>
             <div class="menu-item">
                 <div class="icon-box bg-purple">
-                    <img src="Icon/Profile 4.png" alt="Terms" />
+                    <img src="Profile 4.png" alt="Terms" />
             </div> 
                 <div class="item-label">Account & Profile</div>
                 <div class="chevron">›</div>
             </div>
             <div class="menu-item">
                 <div class="icon-box bg-orange">
-                    <img src="Icon/Security 5.png" alt="Terms" />
+                    <img src="Security 5.png" alt="Terms" />
             </div> 
                 <div class="item-label">Privacy & Security</div>
                 <div class="chevron">›</div>
             </div>
             <div class="menu-item">
                 <div class="icon-box bg-red">
-                     <img src="Icon/Troubleshooting.png" alt="Terms" />
+                     <img src="Troubleshooting.png" alt="Terms" />
             </div> 
                 <div class="item-label">Troubleshooting</div>
                 <div class="chevron">›</div>
             </div>
             <div class="menu-item">
                 <div class="icon-box bg-light-green">
-                     <img src="Icon/Support 2.png" alt="Terms" />
+                     <img src="Support 2.png" alt="Terms" />
             </div> 
                 <div class="item-label">Contact Support</div>
                 <div class="chevron">›</div>
@@ -428,15 +476,14 @@
                 <h3 style="margin: 0; font-size: 1.1rem;">Need more help?</h3>
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin: 5px 0 15px 0;">Our support team is here to assist you</p>
                 <button class="support-btn-outline">
-    <img src="Icon/Mail 4.png" alt="Email" class="button-icon" />
+    <img src="Mail 4.png" alt="Email" class="button-icon" />
     Send Email
 </button>
                
                 <button class="support-btn-outline">
-    <img src="Icon/Call 2.png" alt="Phone" class="phone-icon" />
+    <img src="Call 2.png" alt="Phone" class="phone-icon" />
     Call Hotline
 </button>
-            </div>
 
             <div class="section-label">Frequently Asked Questions</div>
             <div class="faq-item">How do I reset my password? <span>⌵</span></div>
@@ -460,7 +507,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Version.png" alt="Terms" />
+                <img src="Version.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Version</span>
@@ -471,7 +518,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Developer.png" alt="Terms" />
+                <img src="Developer.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Developer Info</span>
@@ -482,7 +529,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Mission.png" alt="Terms" />
+                <img src="Mission.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Our Mission</span>
@@ -493,11 +540,22 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Hand 2.png" alt="Terms" />
+                <img src="Hand 2.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Acknowledgments</span>
                 <span class="sub-text">Special thanks</span>
+            </div>
+            <div class="chevron">›</div>
+        </div>
+
+        <div class="setting-item">
+            <div class="icon-box bg-light-green">
+                <img src="Language 2.png" alt="Terms" />
+            </div> 
+            <div class="item-info">
+                <span class="main-text">Visit Website</span>
+                <span class="sub-text">careclick.com</span>
             </div>
             <div class="chevron">›</div>
         </div>
@@ -510,7 +568,7 @@
     <main id="support-view">
         <div class="support-hero">
             <div class="icon-box bg-white">
-                <img src="Icon/Quick.png" alt="Terms" />
+                <img src="Quick.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Quick Assistance</span>
@@ -523,7 +581,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                <img src="Icon/Message.png" alt="Terms" />
+                <img src="Message.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Live Chat</span>
@@ -534,7 +592,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                 <img src="Icon/Mail 4.png" alt="Terms" />
+                 <img src="Mail 4.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Email Support</span>
@@ -545,7 +603,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                 <img src="Icon/Call 2.png" alt="Terms" />
+                 <img src="Call 2.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Call Us</span>
@@ -556,7 +614,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                 <img src="Icon/Articles.png" alt="Terms" />
+                 <img src="Articles.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Help Articles</span>
@@ -567,7 +625,7 @@
 
         <div class="setting-item">
             <div class="icon-box bg-light-green">
-                 <img src="Icon/Report.png" alt="Terms" />
+                 <img src="Report.png" alt="Terms" />
             </div> 
             <div class="item-info">
                 <span class="main-text">Report an Issue</span>
@@ -581,11 +639,11 @@
             <textarea placeholder="Describe your issue or question..."></textarea>
             <div class="message-footer">
                 <button class="attachment-btn">
-    <img src="Icon/File (7).png" alt="Attachment" class="attachment-icon" />
+    <img src="File (7).png" alt="Attachment" class="attachment-icon" />
 </button>
 
                 <button class="attachment-btn">
-    <img src="Icon/Image.png" alt="Image" class="attachment-icon" />
+    <img src="Image.png" alt="Image" class="attachment-icon" />
 </button>
             </div>
         </div>
@@ -596,14 +654,71 @@
     </main>
 
     <nav class="bottom-navigation" id="bottom-nav">
-        <div class="nav-icon home-btn" onclick="window.location.href='Home.html'" role="button" tabindex="0">
-            <img src="Icon/Home-black.png" alt="Home" style="width: 24px; height: 24px;">
+        <div class="nav-icon home-btn">
+            <img src="Home.png" alt="Privacy" style="width: 24px; height: 24px;">
             </div>
         <div class="nav-icon">
-            <img src="Icon/Profile-black.png" alt="Profile"style="width: 45px; height: 45px;" onclick="window.location.href='Profile.html'" cursor="pointer">
+            <img src="Profile.png" alt="Privacy"style="width: 45px; height: 45px;">
             </div>
         <div class="nav-icon active">☰</div>
     </nav>
-        <script src="Menu.js"></script>
+    
+<main id="terms-view">
+    <div class="terms-card">
+        <div class="terms-icon-header">
+            <div class="icon-box bg-light-green" style="margin: 0 auto 15px auto;">
+                 <img src="User agreement.png" alt="Terms" />
+            </div> 
+            <h2 class="user-agreement-title">User Agreement</h2>
+        </div>
+        
+        <div class="terms-scroll-area">
+            <p class="terms-intro">Welcome to CareClick. By using our platform, you agree to the following terms and conditions.</p>
+            
+            <div class="terms-section">
+    <h4 class="terms-sub-title">
+        <img src="Privacy 2.png" alt="Privacy Icon" class="privacy-icon" />
+        Privacy
+    </h4>
+    <p>We are committed to protecting your personal information and respecting your privacy. All data collected is handled in accordance with our Privacy Policy.</p>
+</div>
+
+           <div class="terms-section">
+    <h4 class="terms-sub-title">
+        <img src="User agreement.png" alt="User Icon" class="user-icon" style="width: 15px; height: 15px;">
+        User Responsibilities
+    </h4>
+    <p>You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.</p>
+</div>
+
+            <div class="terms-section">
+    <h4 class="terms-sub-title">
+        <img src="Data 2.png" alt="Data Handling Icon" class="data-icon" />
+        Data Handling
+    </h4>
+    <p>Your data is processed and stored securely on our servers. We may use your information to improve our services and provide support.</p>
+</div>
+
+           <div class="terms-section">
+    <h4 class="terms-sub-title">
+        <img src="Limitations.png" alt="Your Rights Icon" class="rights-icon" />
+        Limitations
+    </h4>
+    <p>Our Service etc.</p>
+</div>
+
+     <div class="terms-section">
+    <h4 class="terms-sub-title">
+        <img src="Rights.png" alt="Your Rights Icon" class="rights-icon" />
+        Your Rights
+    </h4>
+    <p>You retain all rights to your content and data. You may terminate your account at any time. Upon termination, we will delete your data.</p>
+</div>
+    <div class="terms-actions">
+        <button class="save-btn" onclick="showMenu()">Agree & Continue</button>
+        <button class="support-btn-outline" style="margin-top: 10px;" onclick="showPrivacy()">View Privacy Policy</button>
+    </div>
+</main>
+    <script src="Menu.js"></script>
 </body>
 </html>

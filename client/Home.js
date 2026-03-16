@@ -1,9 +1,10 @@
 const API_BASE = window.location.origin;
 const LOCATION_SYNC_MS = 5000;
-const PRESENCE_PING_MS = 10000;
 const USER_MARKER_ICON_URL = "Icon/gps-green.png";
 const OTHER_USER_MARKER_BLINK_MS = 500;
+const FEED_REFRESH_MS = LOCATION_SYNC_MS;
 const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
+const NOTIFY_POLL_MS = 5000;
 const TOAST_LIFETIME_MS = 5000;
 const TOAST_MAX_VISIBLE = 3;
 
@@ -17,8 +18,9 @@ let customUserMarkerIconCheckPromise = null;
 let userMarkerReadyPromise = null;
 let latestMarkerUpdateId = 0;
 let currentUserId = null;
-let socket = null;
-let presencePingId = null;
+let feedRefreshTimerId = null;
+let notifyPollId = null;
+let lastNotifyAt = null;
 const otherUserMarkers = new Map();
 let isRequestingActive = false;
 let selectedUserForModal = null;
@@ -42,14 +44,9 @@ function formatCoordinates(lat, lng) {
 }
 
 function clearSessionAndRedirect() {
-    if (presencePingId) {
-        clearInterval(presencePingId);
-        presencePingId = null;
-    }
-
-    if (socket) {
-        socket.disconnect();
-        socket = null;
+    if (feedRefreshTimerId) {
+        clearInterval(feedRefreshTimerId);
+        feedRefreshTimerId = null;
     }
 
     otherUserMarkers.forEach((entry) => entry.marker.remove());
@@ -222,11 +219,6 @@ async function syncLocation(lat, lng) {
     if (now - lastLocationSyncAt < LOCATION_SYNC_MS) return;
     lastLocationSyncAt = now;
 
-    if (socket && socket.connected) {
-        socket.emit("location:update", { lat, lng });
-        return;
-    }
-
     try {
         await apiRequest("/api/users/me/location", {
             method: "PATCH",
@@ -341,115 +333,10 @@ async function refreshLocationFeedMarkers() {
     }
 }
 
-function startPresencePing() {
-    if (presencePingId) return;
-    if (socket && socket.connected) {
-        socket.emit("presence:ping");
-    }
-    presencePingId = setInterval(() => {
-        if (socket && socket.connected) {
-            socket.emit("presence:ping");
-        }
-    }, PRESENCE_PING_MS);
-}
-
-function stopPresencePing() {
-    if (presencePingId) {
-        clearInterval(presencePingId);
-        presencePingId = null;
-    }
-}
-
-function startLocationSocket() {
-    if (typeof io === "undefined") {
-        refreshLocationFeedMarkers();
-        return;
-    }
-
-    if (socket) return;
-
-    socket = io(API_BASE, { withCredentials: true });
-
-    socket.on("connect", () => {
-        startPresencePing();
-    });
-
-    socket.on("location:feed", (payload = {}) => {
-        const users = Array.isArray(payload?.users) ? payload.users : [];
-        syncOtherUserMarkers(users);
-    });
-
-    socket.on("location:error", (payload = {}) => {
-        if (payload?.message) {
-            console.warn("Location update error:", payload.message);
-        }
-    });
-
-    socket.on("chat:notify", (payload = {}) => {
-        handleChatNotify(payload);
-    });
-
-    socket.on("disconnect", () => {
-        stopPresencePing();
-    });
-
-    socket.on("connect_error", (error) => {
-        console.error("Socket connection failed:", error.message);
-        refreshLocationFeedMarkers();
-    });
-}
-
-function requestHelp() {
-    hideElement("sos-btn");
-    showElement("request-panel");
-
-    /*setTimeout(() => {
-        const panel = document.getElementById("request-panel");
-        if (!panel.classList.contains("hidden")) {
-            showLocation();
-        }
-    }, 2000);*/
-
-    setTimeout(() => {
-        showLocation();
-    }, 2000);
-}
-
-function showLocation() {
-    hideElement("request-panel");
-    showElement("location-panel");
-    setRequestingStatus(true);
-    isRequestingActive = true;
-}
-
-function cancelRequest() {
-    resetHome();
-}
-
-function showIncomingUserModal(user) {
-    selectedUserForModal = user || null;
-    const nameEl = document.getElementById("incoming-username");
-    if (nameEl) {
-        nameEl.textContent = user?.userName || "User";
-    }
-    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    hideElement("sos-btn");
-    showElement("incoming-modal");
-}
-
-function closeModal() {
-    selectedUserForModal = null;
-    hideElement("incoming-modal");
-    showElement("sos-btn");
-}
-
-function openChatFromModal() {
-    if (!selectedUserForModal?._id) {
-        closeModal();
-        return;
-    }
-    localStorage.setItem(PENDING_CHAT_USER_KEY, selectedUserForModal._id);
-    window.location.href = "Profile.html";
+function startLocationFeedRefresh() {
+    if (feedRefreshTimerId) return;
+    refreshLocationFeedMarkers();
+    feedRefreshTimerId = setInterval(refreshLocationFeedMarkers, FEED_REFRESH_MS);
 }
 
 function formatToastTime(value) {
@@ -517,8 +404,7 @@ function showMessageToast({ senderName, body, createdAt, senderId }) {
     }, TOAST_LIFETIME_MS);
 }
 
-function handleChatNotify(payload = {}) {
-    const message = payload.message || {};
+function handleNotifyMessage(message = {}) {
     if (!message?._id) return;
     if (seenNotifyMessageIds.has(message._id)) return;
     seenNotifyMessageIds.add(message._id);
@@ -533,6 +419,93 @@ function handleChatNotify(payload = {}) {
         createdAt: message.createdAt,
         senderId: message.senderId,
     });
+}
+
+async function fetchNotifications() {
+    try {
+        const params = new URLSearchParams();
+        if (lastNotifyAt) {
+            params.set("since", lastNotifyAt);
+        }
+        const query = params.toString() ? `?${params.toString()}` : "";
+        const data = await apiRequest(`/api/messages/notifications${query}`);
+        const messages = Array.isArray(data?.messages) ? data.messages : [];
+        messages.forEach(handleNotifyMessage);
+        if (data?.nextSince) {
+            lastNotifyAt = data.nextSince;
+        }
+    } catch (error) {
+        console.error("Notification poll failed:", error.message);
+    }
+}
+
+function startNotificationPolling() {
+    if (notifyPollId) return;
+    if (!lastNotifyAt) {
+        lastNotifyAt = new Date().toISOString();
+    }
+    fetchNotifications();
+    notifyPollId = setInterval(fetchNotifications, NOTIFY_POLL_MS);
+}
+
+function stopNotificationPolling() {
+    if (notifyPollId) {
+        clearInterval(notifyPollId);
+        notifyPollId = null;
+    }
+}
+
+function requestHelp() {
+    hideElement("sos-btn");
+    showElement("request-panel");
+
+    /*setTimeout(() => {
+        const panel = document.getElementById("request-panel");
+        if (!panel.classList.contains("hidden")) {
+            showLocation();
+        }
+    }, 2000);*/
+
+    setTimeout(() => {
+        showLocation();
+    }, 2000);
+}
+
+function showLocation() {
+    hideElement("request-panel");
+    showElement("location-panel");
+    setRequestingStatus(true);
+    isRequestingActive = true;
+}
+
+function cancelRequest() {
+    resetHome();
+}
+
+function showIncomingUserModal(user) {
+    selectedUserForModal = user || null;
+    const nameEl = document.getElementById("incoming-username");
+    if (nameEl) {
+        nameEl.textContent = user?.userName || "User";
+    }
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    hideElement("sos-btn");
+    showElement("incoming-modal");
+}
+
+function closeModal() {
+    selectedUserForModal = null;
+    hideElement("incoming-modal");
+    showElement("sos-btn");
+}
+
+function openChatFromModal() {
+    if (!selectedUserForModal?._id) {
+        closeModal();
+        return;
+    }
+    localStorage.setItem(PENDING_CHAT_USER_KEY, selectedUserForModal._id);
+    window.location.href = "Profile.html";
 }
 
 function resetHome() {
@@ -595,16 +568,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     initMap();
     await loadCurrentUser();
     startLocationTracking();
-    startLocationSocket();
+    startLocationFeedRefresh();
+    startNotificationPolling();
 });
 
 window.addEventListener("beforeunload", () => {
-    stopPresencePing();
-
-    if (socket) {
-        socket.disconnect();
-        socket = null;
+    if (feedRefreshTimerId) {
+        clearInterval(feedRefreshTimerId);
+        feedRefreshTimerId = null;
     }
+
+    stopNotificationPolling();
 
     otherUserMarkers.forEach((entry) => entry.marker.remove());
     otherUserMarkers.clear();

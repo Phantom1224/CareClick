@@ -17,6 +17,7 @@ const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 const DEFAULT_OTP_EXP_MINUTES = 10;
 const pendingSignups = new Map();
 const pendingPasswordResets = new Map();
+const otpRequestInFlight = new Set();
 let mailTransporter = null;
 
 function buildToken(user) {
@@ -133,9 +134,15 @@ router.post("/signup/request-code", async (req, res) => {
       return res.status(409).json({ message: "Username already taken" });
     }
 
+    const existingPending = pendingSignups.get(normalizedEmail);
+    const now = Date.now();
+    if (existingPending && now < existingPending.resendAvailableAt) {
+      const waitSeconds = Math.ceil((existingPending.resendAvailableAt - now) / 1000);
+      return res.status(429).json({ message: `Please wait ${waitSeconds}s before requesting another code` });
+    }
+
     const code = generateOtpCode();
     const passwordHash = await bcrypt.hash(password, 10);
-    const now = Date.now();
 
     pendingSignups.set(normalizedEmail, {
       userName: trimmedUserName,
@@ -244,12 +251,18 @@ router.post("/signup/verify-code", async (req, res) => {
 });
 
 router.post("/password/request-code", async (req, res) => {
-  try {
-    const normalizedEmail = cleanEmail(req.body.emailAddress);
-    if (!normalizedEmail) {
-      return res.status(400).json({ message: "Email is required" });
-    }
+  const normalizedEmail = cleanEmail(req.body.emailAddress);
+  if (!normalizedEmail) {
+    return res.status(400).json({ message: "Email is required" });
+  }
 
+  if (otpRequestInFlight.has(normalizedEmail)) {
+    return res.status(429).json({ message: "Please wait before requesting another code" });
+  }
+
+  otpRequestInFlight.add(normalizedEmail);
+
+  try {
     const user = await User.findOne({ emailAddress: normalizedEmail });
     if (!user) {
       return res.status(404).json({ message: "No account found for that email" });
@@ -275,6 +288,8 @@ router.post("/password/request-code", async (req, res) => {
     return res.json({ message: "Password reset code sent to email" });
   } catch (_error) {
     return res.status(500).json({ message: "Unable to send password reset code" });
+  } finally {
+    otpRequestInFlight.delete(normalizedEmail);
   }
 });
 

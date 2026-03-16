@@ -3,6 +3,8 @@ let countdownInterval = null;
 let pendingSignupEmail = "";
 let pendingForgotEmail = "";
 const OTP_RESEND_SECONDS = 60;
+let signupInFlight = false;
+let forgotCodeInFlight = false;
 
 function toggleView(viewId) {
     clearMessages();
@@ -118,6 +120,11 @@ async function handleSignup(event) {
         return;
     }
 
+    if (signupInFlight) {
+        return;
+    }
+    signupInFlight = true;
+
     try {
         await requestJson("/api/auth/signup/request-code", {
             userName,
@@ -134,6 +141,8 @@ async function handleSignup(event) {
         startResendTimer("signup-resend-btn", "signup-timer-display");
     } catch (error) {
         setMessage("signup-message", error.message, true);
+    } finally {
+        signupInFlight = false;
     }
 }
 
@@ -227,6 +236,11 @@ async function handleForgotCodeRequest() {
         return;
     }
 
+    if (forgotCodeInFlight) {
+        return;
+    }
+    forgotCodeInFlight = true;
+
     try {
         await requestJson("/api/auth/password/request-code", { emailAddress });
         pendingForgotEmail = emailAddress;
@@ -234,6 +248,8 @@ async function handleForgotCodeRequest() {
         startResendTimer("forgot-resend-btn", "forgot-timer-display");
     } catch (error) {
         setMessage("forgot-message", error.message, true);
+    } finally {
+        forgotCodeInFlight = false;
     }
 }
 

@@ -4,10 +4,10 @@
     const PENDING_CHAT_USER_KEY = "careclickPendingChatUserId";
     const config = {
         polling: {
-            locationFeedMs: 5000,
-            notificationsMs: 5000,
-            conversationsMs: 5000,
-            messagesMs: 5000,
+            locationFeedMs: 3000,
+            notificationsMs: 3000,
+            conversationsMs: 3000,
+            messagesMs: 3000,
         },
         retry: {
             baseDelayMs: 1000,

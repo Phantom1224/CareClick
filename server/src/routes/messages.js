@@ -223,11 +223,21 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
       emitToConversation(conversation._id, "chat:message", { message: messagePayload });
 
       if (populated) {
+        const sender = populated.participants.find(
+          (participant) => String(participant._id) === String(message.sender)
+        );
+        const notifyPayload = {
+          message: {
+            ...messagePayload,
+            senderName: sender?.userName || "User",
+          },
+        };
         const participantIds = populated.participants.map((participant) => participant._id);
         participantIds.forEach((participantId) => {
           emitToUser(participantId, "chat:conversation:update", {
             conversation: buildConversationSummary(populated, String(participantId), now),
           });
+          emitToUser(participantId, "chat:notify", notifyPayload);
         });
       }
     } catch (_error) {

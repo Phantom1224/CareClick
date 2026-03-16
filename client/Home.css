@@ -31,6 +31,56 @@ body {
 
 .hidden { display: none !important; }
 
+/* Toast Notifications */
+.toast-stack {
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(92vw, 360px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 120;
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    border: none;
+    background: #ffffff;
+    color: var(--text-dark);
+    border-radius: 16px;
+    padding: 12px 14px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: left;
+    cursor: pointer;
+    animation: toastIn 0.25s ease-out;
+}
+
+.toast-title {
+    font-weight: 800;
+    font-size: 0.95rem;
+}
+
+.toast-body {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.toast-time {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes otherUserBlink {
     0% { opacity: 1; }
     100% { opacity: 0.5; }
@@ -106,7 +156,7 @@ body {
 
 .sos-button {
     position: absolute;
-    bottom: calc(var(--bottom-nav-safe) + var(--bottom-nav-gap) + 65px);
+    bottom: calc(var(--bottom-nav-safe) + var(--bottom-nav-gap) + 30px);
     left: 50%;
     transform: translateX(-50%);
     width: 85px;
@@ -175,8 +225,8 @@ body {
 
 /* Status Panels */
 .bottom-panel {
-    position: absolute; bottom: calc(var(--bottom-nav-safe) + var(--bottom-nav-gap)); width: 100%;
-    background: white; padding: 20px 20px 40px; border-radius: 30px 30px 0 0;
+    position: absolute; bottom: calc(var(--bottom-nav-safe) + var(--bottom-nav-gap) - 10px); width: 100%;
+    background: white; padding: 16px 20px 28px; border-radius: 30px 30px 0 0;
     display: flex; flex-direction: column; align-items: center;
     box-shadow: 0 -10px 25px rgba(0,0,0,0.1); z-index: 55;
     animation: slideUp 0.3s ease-out;

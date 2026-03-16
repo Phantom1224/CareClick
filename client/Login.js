@@ -10,14 +10,45 @@ let forgotCodeInFlight = false;
 function toggleView(viewId) {
     clearMessages();
     const cards = document.querySelectorAll(".card");
+    const activeCard = Array.from(cards).find((card) => !card.classList.contains("hidden"));
+
+    if (activeCard && activeCard.id !== viewId) {
+        resetViewFields(activeCard);
+    }
+
     cards.forEach((card) => card.classList.add("hidden"));
 
-    const activeCard = document.getElementById(viewId);
-    if (activeCard) {
-        activeCard.classList.remove("hidden");
+    const nextCard = document.getElementById(viewId);
+    if (nextCard) {
+        nextCard.classList.remove("hidden");
     }
 
     window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function resetViewFields(card) {
+    if (!card) return;
+
+    const inputs = card.querySelectorAll("input");
+    inputs.forEach((input) => {
+        if (input.type === "checkbox" || input.type === "radio") {
+            input.checked = false;
+            return;
+        }
+        input.value = "";
+    });
+
+    const toggles = card.querySelectorAll(".password-toggle");
+    toggles.forEach((button) => {
+        const targetId = button.getAttribute("data-target");
+        const input = targetId ? document.getElementById(targetId) : null;
+        if (input && input.type !== "password") {
+            input.type = "password";
+        }
+        button.setAttribute("aria-pressed", "false");
+        button.setAttribute("data-visible", "false");
+        button.setAttribute("aria-label", "Show password");
+    });
 }
 
 function setMessage(messageId, message, isError = false) {
@@ -302,6 +333,23 @@ function setupOtpInputBehavior() {
     });
 }
 
+function setupPasswordToggles() {
+    const toggles = document.querySelectorAll(".password-toggle");
+    toggles.forEach((button) => {
+        button.addEventListener("click", () => {
+            const targetId = button.getAttribute("data-target");
+            const input = targetId ? document.getElementById(targetId) : null;
+            if (!input) return;
+
+            const show = input.type === "password";
+            input.type = show ? "text" : "password";
+            button.setAttribute("aria-pressed", String(show));
+            button.setAttribute("data-visible", String(show));
+            button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+        });
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     checkExistingSession();
 
@@ -310,6 +358,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("signup-form").addEventListener("submit", handleSignup);
     document.getElementById("forgot-form").addEventListener("submit", handleForgotPassword);
     setupOtpInputBehavior();
+    setupPasswordToggles();
 });
 
 async function checkExistingSession() {

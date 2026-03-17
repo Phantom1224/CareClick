@@ -89,9 +89,10 @@ body {
     margin: 0;
     color: #1a202c;
     letter-spacing: -0.5px;
+    color: var(--primary-green);
 }
 
-.logo span { color: var(--primary-green); }
+.logo span { color: black; }
 
 .title-bar {
     text-align: center;

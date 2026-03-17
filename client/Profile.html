@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -43,7 +43,9 @@
 
     <div id="view-messenger" class="hidden">
         <header>
-            <button class="icon-btn" onclick="openProfile()">←</button>
+            <button class="icon-btn" onclick="openProfile()">
+                <img src="Icon/back.png">
+            </button>
             <button class="icon-btn" id="search-toggle-btn" onclick="toggleUserSearch()">
                 <img src="Icon/Search.png" alt="Search" style="width: 20px; height: 20px;">
             </button>
@@ -63,7 +65,9 @@
 
     <div id="view-chat" class="hidden">
         <header>
-            <button class="icon-btn" onclick="openMessages()">←</button>
+            <button class="icon-btn" onclick="openMessages()">
+                <img src="Icon/back.png">
+            </button>
             <div style="text-align: center; flex: 1;">
                 <div class="page-title" id="chat-title">User Name</div>
                 <div class="active-status" id="chat-status">Active now</div>
@@ -72,8 +76,10 @@
         <main class="content-container chat-container" id="chat-messages"></main>
 
         <footer class="chat-footer">
-            <input type="text" class="chat-input" id="chat-input" placeholder="Type a message...">
-            <button class="send-icon-btn" id="chat-send-btn" style="cursor: pointer;">➤</button>
+            <textarea class="chat-input" id="chat-input" placeholder="Type a message..." rows="1"></textarea>
+            <button class="send-icon-btn" id="chat-send-btn" style="cursor: pointer;">
+                <img src="Icon/send.png">
+            </button>
         </footer>
     </div>
 
@@ -83,9 +89,9 @@
         </div>
 
         <div class="call-header">
-            <div class="call-header-btn" onclick="endCall()">←</div>
+            <div class="call-header-btn" onclick="endCall()">â†</div>
             <div class="page-title" id="call-name">Peter Parker</div>
-            <div class="call-header-btn transparent">⋮</div>
+            <div class="call-header-btn transparent">â‹®</div>
         </div>
 
         <div class="call-avatar-container">
@@ -125,7 +131,7 @@
                 </div>
             </div>
             <button class="btn-end-call" onclick="endCall()">
-                <span class="phone-icon-rotated">📞</span> End Call
+                <span class="phone-icon-rotated">ðŸ“ž</span> End Call
             </button>
         </div>
     </div>
@@ -137,11 +143,14 @@
         <div class="nav-item active" onclick="openProfile()">
             <img src="Icon/Profile.png" alt="Profile" style="width: 45px; height: 45px;">
         </div>
-        <div class="nav-item" onclick="window.location.href='Menu.html'" curssor="pointer">☰</div>
+        <div class="nav-item" onclick="window.location.href='Menu.html'" curssor="pointer">
+            <img src="Icon/menu.png">
+        </div>
     </nav>
 
     <script src="shared.js"></script>
     <script src="Profile.js"></script>
 </body>
 </html>
+
 

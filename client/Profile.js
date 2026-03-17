@@ -392,6 +392,15 @@ function scrollChatToBottom() {
     container.scrollTop = container.scrollHeight;
 }
 
+function autoResizeChatInput(input) {
+    if (!input) return;
+    const maxHeight = 90;
+    input.style.height = "auto";
+    const nextHeight = Math.min(input.scrollHeight, maxHeight);
+    input.style.height = `${nextHeight}px`;
+    input.style.overflowY = input.scrollHeight > maxHeight ? "auto" : "hidden";
+}
+
 async function loadMessages({ reset } = {}) {
     if (!activeConversationId) return;
     try {
@@ -468,6 +477,7 @@ async function sendMessage() {
         sendInFlight = true;
         if (sendBtn) sendBtn.disabled = true;
         input.value = "";
+        autoResizeChatInput(input);
         tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         renderMessageBubble(
             {
@@ -636,6 +646,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 sendMessage();
             }
         });
+        input.addEventListener("input", () => autoResizeChatInput(input));
+        autoResizeChatInput(input);
     }
 
     if (userSearchInput) {

@@ -123,8 +123,8 @@ body {
     z-index: 2;
 }
 
-.logo { font-size: 1.4rem; font-weight: 800; margin: 0; }
-.logo span { color: var(--primary-green); }
+.logo { font-size: 1.4rem; font-weight: 800; margin: 0;  color: var(--primary-green); }
+.logo span { color: black; }
 .live-location {
     margin: 4px 0 0;
     font-size: 0.8rem;

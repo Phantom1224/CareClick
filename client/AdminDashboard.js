@@ -42,6 +42,13 @@ function renderUsers() {
         const name = (user.userName || "").toLowerCase();
         const email = (user.emailAddress || "").toLowerCase();
         return name.includes(term) || email.includes(term);
+    }).sort((a, b) => {
+        const aIsAdmin = a.role === "admin";
+        const bIsAdmin = b.role === "admin";
+        if (aIsAdmin !== bIsAdmin) {
+            return aIsAdmin ? -1 : 1;
+        }
+        return (a.emailAddress || "").localeCompare(b.emailAddress || "");
     });
 
     usersList.innerHTML = "";

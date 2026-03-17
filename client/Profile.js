@@ -123,6 +123,7 @@ function normalizeConversation(raw) {
         _id: raw._id,
         lastMessageText: raw.lastMessageText || "",
         lastMessageAt: raw.lastMessageAt || raw.updatedAt,
+        lastMessageSenderId: raw.lastMessageSenderId || null,
         otherUser: other
             ? {
                   _id: other._id,
@@ -181,7 +182,16 @@ function renderConversations(conversations = [], { replaceCache = true } = {}) {
 
         const text = document.createElement("p");
         text.className = "msg-text";
-        text.textContent = conversation.lastMessageText || "Start the conversation";
+        const lastText = conversation.lastMessageText || "Start the conversation";
+        if (conversation.lastMessageSenderId && currentUserId) {
+            if (String(conversation.lastMessageSenderId) === String(currentUserId)) {
+                text.textContent = `Me: ${lastText}`;
+            } else {
+                text.textContent = lastText;
+            }
+        } else {
+            text.textContent = lastText;
+        }
 
         header.appendChild(name);
         header.appendChild(time);
@@ -363,8 +373,11 @@ function renderMessageBubble(message, { status, tempId } = {}) {
     const container = document.getElementById("chat-messages");
     if (!container) return;
 
-    const bubble = document.createElement("div");
     const isSent = message.senderId === currentUserId;
+    const wrapper = document.createElement("div");
+    wrapper.className = `chat-message ${isSent ? "message-sent" : "message-received"}`;
+
+    const bubble = document.createElement("div");
     bubble.className = `chat-bubble ${isSent ? "bubble-sent" : "bubble-received"}`;
     bubble.textContent = message.body;
     if (message._id) {
@@ -373,17 +386,26 @@ function renderMessageBubble(message, { status, tempId } = {}) {
     if (tempId) {
         bubble.dataset.tempId = String(tempId);
     }
+    bubble.dataset.body = message.body;
 
     const meta = document.createElement("span");
     meta.className = "chat-meta";
-    if (status) {
-        meta.textContent = status;
-    } else {
-        meta.textContent = formatTime(message.createdAt);
-    }
+    meta.textContent = formatTime(message.createdAt);
 
     bubble.appendChild(meta);
-    container.appendChild(bubble);
+    wrapper.appendChild(bubble);
+
+    if (status) {
+        const statusEl = document.createElement("span");
+        statusEl.className = "chat-status";
+        statusEl.textContent = status;
+        if (status === "Sending") statusEl.classList.add("status-sending");
+        if (status === "Sent") statusEl.classList.add("status-sent");
+        if (status === "Failed") statusEl.classList.add("status-failed");
+        wrapper.appendChild(statusEl);
+    }
+
+    container.appendChild(wrapper);
 }
 
 function scrollChatToBottom() {
@@ -427,6 +449,26 @@ async function loadMessages({ reset } = {}) {
             messages.forEach((message) => {
                 if (activeMessageIds.has(message._id)) {
                     return;
+                }
+                if (String(message.senderId) === String(currentUserId)) {
+                    const tempBubble = document.querySelector(
+                        `[data-temp-id][data-body="${CSS.escape(message.body)}"]`
+                    );
+                    if (tempBubble) {
+                        tempBubble.dataset.messageId = String(message._id);
+                        tempBubble.removeAttribute("data-temp-id");
+                        activeMessageIds.add(message._id);
+                        const wrapper = tempBubble.closest(".chat-message");
+                        if (wrapper) {
+                            const statusEl = wrapper.querySelector(".chat-status");
+                            if (statusEl) {
+                                statusEl.textContent = "Sent";
+                                statusEl.classList.remove("status-sending", "status-failed");
+                                statusEl.classList.add("status-sent");
+                            }
+                        }
+                        return;
+                    }
                 }
                 activeMessageIds.add(message._id);
                 renderMessageBubble(message);
@@ -499,14 +541,24 @@ async function sendMessage() {
         );
         const message = data?.message;
         if (message) {
+            if (activeMessageIds.has(message._id)) {
+                lastMessageCursor = message.createdAt;
+                scrollChatToBottom();
+                return;
+            }
             const tempBubble = document.querySelector(`[data-temp-id="${tempId}"]`);
             if (tempBubble) {
                 tempBubble.dataset.messageId = String(message._id);
                 tempBubble.removeAttribute("data-temp-id");
                 activeMessageIds.add(message._id);
-                const meta = tempBubble.querySelector(".chat-meta");
-                if (meta) {
-                    meta.textContent = "Sent";
+                const wrapper = tempBubble.closest(".chat-message");
+                if (wrapper) {
+                    const statusEl = wrapper.querySelector(".chat-status");
+                    if (statusEl) {
+                        statusEl.textContent = "Sent";
+                        statusEl.classList.remove("status-sending", "status-failed");
+                        statusEl.classList.add("status-sent");
+                    }
                 }
             } else {
                 renderMessageBubble(message);
@@ -518,9 +570,14 @@ async function sendMessage() {
         console.error("Failed to send message:", error.message);
         const tempBubble = document.querySelector(`[data-temp-id="${tempId}"]`);
         if (tempBubble) {
-            const meta = tempBubble.querySelector(".chat-meta");
-            if (meta) {
-                meta.textContent = "Failed";
+            const wrapper = tempBubble.closest(".chat-message");
+            if (wrapper) {
+                const statusEl = wrapper.querySelector(".chat-status");
+                if (statusEl) {
+                    statusEl.textContent = "Failed";
+                    statusEl.classList.remove("status-sending", "status-sent");
+                    statusEl.classList.add("status-failed");
+                }
             }
         }
     } finally {

@@ -21,6 +21,7 @@ function buildConversationSummary(conversation, userId, now) {
       _id: conversation._id,
       lastMessageText: conversation.lastMessageText || "",
       lastMessageAt: conversation.lastMessageAt || conversation.updatedAt,
+      lastMessageSenderId: conversation.lastMessageSender || null,
       otherUser: other
         ? {
             _id: other._id,
@@ -233,6 +234,7 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
 
     conversation.lastMessageText = body;
     conversation.lastMessageAt = message.createdAt;
+    conversation.lastMessageSender = userId;
     await conversation.save();
 
     return sendCreated(res, {

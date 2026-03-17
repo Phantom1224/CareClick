@@ -13,6 +13,7 @@ const conversationSchema = new mongoose.Schema(
     participantsKey: { type: String, required: true, unique: true, index: true },
     lastMessageText: { type: String, default: "" },
     lastMessageAt: { type: Date, default: null },
+    lastMessageSender: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );

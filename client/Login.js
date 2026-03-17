@@ -244,6 +244,9 @@ async function handleVerify() {
         return;
     }
 
+    const verifyBtn = document.querySelector("#view-verify button.btn");
+    const originalLabel = verifyBtn ? verifyBtn.textContent : "";
+
     const inputs = document.querySelectorAll(".otp-input");
     const code = Array.from(inputs).map((i) => i.value).join("");
 
@@ -253,6 +256,10 @@ async function handleVerify() {
     }
 
     try {
+        if (verifyBtn) {
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = "Verifying...";
+        }
         const data = await postJson("/api/auth/signup/verify-code", {
             emailAddress: pendingSignupEmail,
             code,
@@ -262,6 +269,11 @@ async function handleVerify() {
         window.location.href = "Home.html";
     } catch (error) {
         setMessage("verify-message", error.message, true);
+    } finally {
+        if (verifyBtn) {
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = originalLabel || "Verify";
+        }
     }
 }
 

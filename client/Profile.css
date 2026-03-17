@@ -163,11 +163,18 @@ header {
 .call-trigger { color: var(--primary-green); font-size: 1.4rem; cursor: pointer; }
 .more-trigger { font-size: 1.4rem; cursor: pointer; }
 .chat-container { display: flex; flex-direction: column; gap: 15px; padding-bottom: 80px; }
-.chat-bubble { padding: 12px 16px; border-radius: 20px; font-size: 0.95rem; line-height: 1.4; max-width: 80%; position: relative; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.chat-message { display: flex; flex-direction: column; max-width: 80%; }
+.message-sent { align-self: flex-end; text-align: right; }
+.message-received { align-self: flex-start; text-align: left; }
+.chat-bubble { padding: 12px 16px; border-radius: 20px; font-size: 0.95rem; line-height: 1.4; position: relative; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
 .bubble-received { background: #ffffff; color: var(--text-dark); align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 .bubble-sent { background: var(--primary-green); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
 .chat-meta { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; display: block; }
 .bubble-sent .chat-meta { color: rgba(255,255,255,0.8); text-align: right; }
+.chat-status { font-size: 0.7rem; margin-top: 4px; color: #94a3b8; }
+.chat-status.status-sending { color: #94a3b8; font-style: italic; }
+.chat-status.status-sent { color: #94a3b8; }
+.chat-status.status-failed { color: #ef4444; font-weight: 600; }
 
 .chat-footer {
     position: fixed; bottom: 0; width: 100%; background: white;

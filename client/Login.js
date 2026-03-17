@@ -113,7 +113,11 @@ async function handleLogin(event) {
             submitBtn.textContent = "Signing in...";
         }
         const data = await postJson("/api/auth/login", { emailAddress, password });
-        window.location.href = "Home.html";
+        if (data?.user?.role === "admin") {
+            window.location.href = "AdminDashboard.html";
+        } else {
+            window.location.href = "Home.html";
+        }
     } catch (error) {
         setMessage("login-message", error.message, true);
     } finally {

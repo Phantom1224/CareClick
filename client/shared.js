@@ -35,7 +35,7 @@
     CareClick.requestJson = async function requestJson(
         path,
         options = {},
-        { onUnauthorized } = {}
+        { onUnauthorized, unauthorizedMessage = "Session expired" } = {}
     ) {
         const response = await fetch(`${API_BASE}${path}`, {
             credentials: "include",
@@ -52,7 +52,7 @@
             if (typeof onUnauthorized === "function") {
                 onUnauthorized();
             }
-            throw new Error("Session expired");
+            throw new Error(data.message || unauthorizedMessage);
         }
 
         if (!response.ok) {

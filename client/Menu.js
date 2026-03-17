@@ -184,7 +184,8 @@ document.querySelectorAll('.language-item').forEach(item => {
 const menuItems = document.querySelectorAll('.menu-item');
 menuItems.forEach((item) => {
     const label = item.querySelector('.item-label');
-    if (label && label.textContent.trim().toLowerCase() === 'log out') {
+    const text = label ? label.textContent.trim().toLowerCase() : "";
+    if (text === 'sign out' || text === 'log out' || text === 'logout') {
         item.addEventListener('click', logoutUser);
     }
 });

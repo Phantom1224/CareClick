@@ -427,7 +427,7 @@ router.post("/login", async (req, res) => {
     setAuthCookie(res, token);
     return sendOk(res, { token, user: user.toJSON() });
   } catch (_error) {
-    return sendError(res, 500, "Unable to log in");
+    return sendError(res, 500, "Unable to sign in");
   }
 });
 

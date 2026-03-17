@@ -99,6 +99,8 @@ async function handleLogin(event) {
 
     const emailAddress = document.getElementById("login-email").value.trim().toLowerCase();
     const password = document.getElementById("login-password").value;
+    const submitBtn = document.querySelector("#login-form button[type='submit']");
+    const originalSubmitLabel = submitBtn ? submitBtn.textContent : "";
 
     if (!emailAddress || !password) {
         setMessage("login-message", "Email and password are required.", true);
@@ -106,10 +108,19 @@ async function handleLogin(event) {
     }
 
     try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Signing in...";
+        }
         const data = await postJson("/api/auth/login", { emailAddress, password });
         window.location.href = "Home.html";
     } catch (error) {
         setMessage("login-message", error.message, true);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalSubmitLabel || "Sign In";
+        }
     }
 }
 
@@ -121,6 +132,8 @@ async function handleSignup(event) {
     const emailAddress = document.getElementById("signup-email").value.trim().toLowerCase();
     const password = document.getElementById("signup-password").value;
     const confirmPassword = document.getElementById("signup-confirm-password").value;
+    const submitBtn = document.querySelector("#signup-form button[type='submit']");
+    const originalSubmitLabel = submitBtn ? submitBtn.textContent : "";
 
     if (!userName || !emailAddress || !password || !confirmPassword) {
         setMessage("signup-message", "All fields are required.", true);
@@ -141,6 +154,10 @@ async function handleSignup(event) {
         return;
     }
     signupInFlight = true;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Sending...";
+    }
 
     try {
         await postJson("/api/auth/signup/request-code", {
@@ -160,6 +177,10 @@ async function handleSignup(event) {
         setMessage("signup-message", error.message, true);
     } finally {
         signupInFlight = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalSubmitLabel || "Sign Up";
+        }
     }
 }
 
@@ -278,6 +299,8 @@ async function handleForgotPassword(event) {
     const newPassword = document.getElementById("forgot-new-password").value;
     const confirmPassword = document.getElementById("forgot-confirm-password").value;
     const code = document.getElementById("forgot-code").value.trim();
+    const submitBtn = document.querySelector("#forgot-form button[type='submit']");
+    const originalSubmitLabel = submitBtn ? submitBtn.textContent : "";
 
     if (!emailAddress || !newPassword || !confirmPassword || !code) {
         setMessage("forgot-message", "All fields are required.", true);
@@ -300,6 +323,10 @@ async function handleForgotPassword(event) {
     }
 
     try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Resetting...";
+        }
         await postJson("/api/auth/password/reset", {
             emailAddress,
             newPassword,
@@ -307,10 +334,15 @@ async function handleForgotPassword(event) {
             code,
         });
         pendingForgotEmail = "";
-        setMessage("forgot-message", "Password updated. You can log in now.");
+        setMessage("forgot-message", "Password updated. You can sign in now.");
         toggleView("view-login");
     } catch (error) {
         setMessage("forgot-message", error.message, true);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalSubmitLabel || "Reset Password";
+        }
     }
 }
 
@@ -372,7 +404,7 @@ async function checkExistingSession() {
             return true;
         }
     } catch (_error) {
-        // Ignore network errors; user will log in.
+        // Ignore network errors; user will sign in.
     }
     return false;
 }

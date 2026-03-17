@@ -23,6 +23,7 @@ const conversationCache = new Map();
 let allUsers = [];
 let searchTerm = "";
 let activeMessageIds = new Set();
+let sendInFlight = false;
 const seenNotifyMessageIds = new Set();
 const notificationPoller = createNotificationPoller({
     pollMs: NOTIFY_POLL_MS,
@@ -358,7 +359,7 @@ function setChatHeader(conversation) {
     }
 }
 
-function renderMessageBubble(message) {
+function renderMessageBubble(message, { status, tempId } = {}) {
     const container = document.getElementById("chat-messages");
     if (!container) return;
 
@@ -366,10 +367,20 @@ function renderMessageBubble(message) {
     const isSent = message.senderId === currentUserId;
     bubble.className = `chat-bubble ${isSent ? "bubble-sent" : "bubble-received"}`;
     bubble.textContent = message.body;
+    if (message._id) {
+        bubble.dataset.messageId = String(message._id);
+    }
+    if (tempId) {
+        bubble.dataset.tempId = String(tempId);
+    }
 
     const meta = document.createElement("span");
     meta.className = "chat-meta";
-    meta.textContent = formatTime(message.createdAt);
+    if (status) {
+        meta.textContent = status;
+    } else {
+        meta.textContent = formatTime(message.createdAt);
+    }
 
     bubble.appendChild(meta);
     container.appendChild(bubble);
@@ -405,6 +416,9 @@ async function loadMessages({ reset } = {}) {
 
         if (messages.length) {
             messages.forEach((message) => {
+                if (activeMessageIds.has(message._id)) {
+                    return;
+                }
                 activeMessageIds.add(message._id);
                 renderMessageBubble(message);
             });
@@ -443,11 +457,28 @@ function stopNotificationPolling() {
 
 async function sendMessage() {
     const input = document.getElementById("chat-input");
+    const sendBtn = document.getElementById("chat-send-btn");
     if (!input || !activeConversationId) return;
     const body = input.value.trim();
     if (!body) return;
+    if (sendInFlight) return;
+    let tempId = null;
 
     try {
+        sendInFlight = true;
+        if (sendBtn) sendBtn.disabled = true;
+        tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        renderMessageBubble(
+            {
+                _id: null,
+                body,
+                senderId: currentUserId,
+                createdAt: new Date().toISOString(),
+            },
+            { status: "Sending", tempId }
+        );
+        scrollChatToBottom();
+
         const data = await apiRequest(
             `/api/messages/conversations/${activeConversationId}/messages`,
             {
@@ -458,12 +489,33 @@ async function sendMessage() {
         input.value = "";
         const message = data?.message;
         if (message) {
-            renderMessageBubble(message);
+            const tempBubble = document.querySelector(`[data-temp-id="${tempId}"]`);
+            if (tempBubble) {
+                tempBubble.dataset.messageId = String(message._id);
+                tempBubble.removeAttribute("data-temp-id");
+                activeMessageIds.add(message._id);
+                const meta = tempBubble.querySelector(".chat-meta");
+                if (meta) {
+                    meta.textContent = "Sent";
+                }
+            } else {
+                renderMessageBubble(message);
+            }
             lastMessageCursor = message.createdAt;
             scrollChatToBottom();
         }
     } catch (error) {
         console.error("Failed to send message:", error.message);
+        const tempBubble = document.querySelector(`[data-temp-id="${tempId}"]`);
+        if (tempBubble) {
+            const meta = tempBubble.querySelector(".chat-meta");
+            if (meta) {
+                meta.textContent = "Failed";
+            }
+        }
+    } finally {
+        sendInFlight = false;
+        if (sendBtn) sendBtn.disabled = false;
     }
 }
 

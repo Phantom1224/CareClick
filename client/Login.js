@@ -411,14 +411,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function checkExistingSession() {
     try {
-        const response = await fetch(`${API_BASE}/api/users/me`, {
-            method: "GET",
-            credentials: "include",
-        });
-        if (response.ok) {
+        const data = await requestJson("/api/users/me", { method: "GET" });
+        if (data?.user?.role === "admin") {
+            window.location.href = "AdminDashboard.html";
+        } else if (data?.user) {
             window.location.href = "Home.html";
-            return true;
         }
+        return true;
     } catch (_error) {
         // Ignore network errors; user will sign in.
     }

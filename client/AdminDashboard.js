@@ -24,6 +24,20 @@ async function apiRequest(path, options = {}) {
     });
 }
 
+async function ensureAdminSession() {
+    try {
+        const data = await apiRequest("/api/users/me");
+        if (data?.user?.role !== "admin") {
+            window.location.href = "Home.html";
+            return false;
+        }
+        return true;
+    } catch (_error) {
+        window.location.href = "Login.html";
+        return false;
+    }
+}
+
 function showToast(message, isError = false) {
     createToast({
         title: isError ? "Action Failed" : "Success",
@@ -187,7 +201,11 @@ async function logoutUser() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    loadUsers();
+    ensureAdminSession().then((ok) => {
+        if (ok) {
+            loadUsers();
+        }
+    });
     if (searchInput) {
         searchInput.addEventListener("input", (event) => {
             currentSearch = event.target.value || "";

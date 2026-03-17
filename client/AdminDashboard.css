@@ -201,6 +201,34 @@ body {
     padding: 8px 4px;
 }
 
+.fab-home {
+    position: fixed;
+    right: 18px;
+    bottom: 22px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary-green);
+    color: #ffffff;
+    box-shadow: 0 14px 30px rgba(130, 209, 77, 0.35);
+    cursor: pointer;
+    z-index: 160;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fab-home:active {
+    transform: scale(0.97);
+}
+
+.fab-icon {
+    width: 26px;
+    height: 26px;
+    filter: brightness(0) invert(1);
+}
+
 .modal-backdrop {
     position: fixed;
     inset: 0;

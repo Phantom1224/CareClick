@@ -5,6 +5,7 @@ const usersList = document.getElementById("users-list");
 const emptyState = document.getElementById("users-empty");
 const searchInput = document.getElementById("user-search-input");
 const logoutBtn = document.getElementById("admin-logout-btn");
+const homeBtn = document.getElementById("admin-home-btn");
 const deleteModal = document.getElementById("delete-modal");
 const deleteModalBody = document.getElementById("delete-modal-body");
 const deleteConfirmBtn = document.getElementById("delete-confirm-btn");
@@ -214,6 +215,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (logoutBtn) {
         logoutBtn.addEventListener("click", logoutUser);
+    }
+    if (homeBtn) {
+        homeBtn.addEventListener("click", () => {
+            window.location.href = "Home.html";
+        });
     }
     if (deleteConfirmBtn) {
         deleteConfirmBtn.addEventListener("click", () => {

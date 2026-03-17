@@ -3,6 +3,7 @@ const {
     apiRequest: sharedApiRequest,
     showMessageToast,
     createNotificationPoller,
+    formatTime,
 } = CareClick;
 const PENDING_CHAT_USER_KEY =
     CareClick.PENDING_CHAT_USER_KEY || "careclickPendingChatUserId";

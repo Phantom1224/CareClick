@@ -467,6 +467,7 @@ async function sendMessage() {
     try {
         sendInFlight = true;
         if (sendBtn) sendBtn.disabled = true;
+        input.value = "";
         tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         renderMessageBubble(
             {
@@ -486,7 +487,6 @@ async function sendMessage() {
                 body: JSON.stringify({ body }),
             }
         );
-        input.value = "";
         const message = data?.message;
         if (message) {
             const tempBubble = document.querySelector(`[data-temp-id="${tempId}"]`);

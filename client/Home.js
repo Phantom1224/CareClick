@@ -28,7 +28,6 @@ const otherUserMarkers = new Map();
 let isRequestingActive = false;
 let selectedUserForModal = null;
 const seenNotifyMessageIds = new Set();
-let locationPermissionRequested = false;
 const notificationPoller = createNotificationPoller({
     pollMs: NOTIFY_POLL_MS,
     onMessage: handleNotifyMessage,
@@ -236,27 +235,6 @@ function startLocationTracking() {
     });
 }
 
-function requestLocationAccess() {
-    if (locationPermissionRequested) return;
-    locationPermissionRequested = true;
-
-    if (!navigator.geolocation) {
-        setLocationLabel("Geolocation unsupported");
-        return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            handlePosition(position);
-            startLocationTracking();
-        },
-        (error) => {
-            handlePositionError(error);
-        },
-        { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
-    );
-}
-
 function applyRequestingUI(isRequesting) {
     isRequestingActive = Boolean(isRequesting);
 
@@ -368,7 +346,6 @@ function stopNotificationPolling() {
 }
 
 function requestHelp() {
-    requestLocationAccess();
     hideElement("sos-btn");
     showElement("request-panel");
 
@@ -479,6 +456,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
     initMap();
     await loadCurrentUser();
+    startLocationTracking();
     startLocationFeedRefresh();
     startNotificationPolling();
 });

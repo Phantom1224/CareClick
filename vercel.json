@@ -8,9 +8,9 @@
     { "src": "^/api/(.*)", "dest": "/server/api/index.js" },
     { "src": "^/health/?$", "dest": "/server/api/index.js" },
     { "src": "^/$", "dest": "/client/Login.html" },
-    { "src": "^/home/?$", "dest": "/client/Home.html" },
-    { "src": "^/menu/?$", "dest": "/client/Menu.html" },
-    { "src": "^/profile/?$", "dest": "/client/Profile.html" },
+    { "src": "^/home/?$", "dest": "/client/Main.html" },
+    { "src": "^/menu/?$", "dest": "/client/Main.html" },
+    { "src": "^/profile/?$", "dest": "/client/Main.html" },
     { "src": "/(.*)", "dest": "/client/$1" }
   ]
 }

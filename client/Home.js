@@ -12,6 +12,7 @@ const FEED_REFRESH_MS =
     CareClick.config?.polling?.locationFeedMs || LOCATION_SYNC_MS;
 const NOTIFY_POLL_MS =
     CareClick.config?.polling?.notificationsMs || 5000;
+const NEARBY_RADIUS_METERS = 1000;
 
 let map = null;
 let userMarker = null;
@@ -46,6 +47,31 @@ function setLocationLabel(text) {
 
 function formatCoordinates(lat, lng) {
     return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+function degreesToRadians(degrees) {
+    return (degrees * Math.PI) / 180;
+}
+
+function haversineMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const dLat = degreesToRadians(lat2 - lat1);
+    const dLng = degreesToRadians(lng2 - lng1);
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(degreesToRadians(lat1)) *
+            Math.cos(degreesToRadians(lat2)) *
+            Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getCurrentUserLatLng(users) {
+    const me = users.find((user) => String(user._id) === String(currentUserId));
+    if (!me?.userLocation) return null;
+    const lat = Number(me.userLocation.lat);
+    const lng = Number(me.userLocation.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
 }
 
 function clearSessionAndRedirect() {
@@ -271,11 +297,28 @@ async function loadCurrentUser() {
 function syncOtherUserMarkers(users) {
     if (!map) return;
 
+    const me = getCurrentUserLatLng(users);
+
     const onlineOtherUsers = users.filter((user) => {
         const isOtherUser = String(user._id) !== String(currentUserId);
         const hasCoords =
             Number.isFinite(user?.userLocation?.lat) && Number.isFinite(user?.userLocation?.lng);
-        return isOtherUser && user.isOnline && hasCoords && user.isRequesting;
+        if (!(isOtherUser && user.isOnline && hasCoords && user.isRequesting)) {
+            return false;
+        }
+
+        if (!me) {
+            return true;
+        }
+
+        const distance = haversineMeters(
+            me.lat,
+            me.lng,
+            Number(user.userLocation.lat),
+            Number(user.userLocation.lng)
+        );
+
+        return distance <= NEARBY_RADIUS_METERS;
     });
 
     const activeIds = new Set(onlineOtherUsers.map((user) => String(user._id)));

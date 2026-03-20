@@ -13,7 +13,13 @@ function toggleView(viewId) {
     const activeCard = Array.from(cards).find((card) => !card.classList.contains("hidden"));
 
     if (activeCard && activeCard.id !== viewId) {
-        resetViewFields(activeCard);
+        const isTermsToggle =
+            (activeCard.id === "view-signup" && viewId === "view-terms") ||
+            (activeCard.id === "view-terms" && viewId === "view-signup");
+
+        if (!isTermsToggle) {
+            resetViewFields(activeCard);
+        }
     }
 
     cards.forEach((card) => card.classList.add("hidden"));

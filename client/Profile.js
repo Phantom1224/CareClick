@@ -651,6 +651,13 @@ async function sendMessage() {
                 tempBubble.dataset.messageId = String(message._id);
                 tempBubble.removeAttribute("data-temp-id");
                 activeMessageIds.add(message._id);
+                if (message.messageType !== "image") {
+                    const meta = tempBubble.querySelector(".chat-meta");
+                    tempBubble.textContent = message.body;
+                    if (meta) {
+                        tempBubble.appendChild(meta);
+                    }
+                }
                 const wrapper = tempBubble.closest(".chat-message");
                 if (wrapper) {
                     const statusEl = wrapper.querySelector(".chat-status");

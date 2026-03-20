@@ -22,6 +22,8 @@ let activeConversation = null;
 let lastMessageCursor = null;
 const conversationCache = new Map();
 let allUsers = [];
+let groupAddSearchTerm = "";
+let groupAddExistingIds = new Set();
 let searchTerm = "";
 let activeMessageIds = new Set();
 let sendInFlight = false;
@@ -409,6 +411,17 @@ function renderMessageBubble(message, { status, tempId, localImageUrl } = {}) {
     const container = document.getElementById("chat-messages");
     if (!container) return;
 
+    if (message.messageType === "system") {
+        const wrapper = document.createElement("div");
+        wrapper.className = "chat-message system-message";
+        const text = document.createElement("div");
+        text.className = "system-message-text";
+        text.textContent = message.body;
+        wrapper.appendChild(text);
+        container.appendChild(wrapper);
+        return;
+    }
+
     const isSent = message.senderId === currentUserId;
     const wrapper = document.createElement("div");
     wrapper.className = `chat-message ${isSent ? "message-sent" : "message-received"}`;
@@ -678,7 +691,17 @@ function renderGroupUserList() {
     if (!listEl) return;
     listEl.innerHTML = "";
 
-    allUsers.forEach((user) => {
+    const searchInput = document.getElementById("group-user-search");
+    const term = searchInput?.value?.trim().toLowerCase() || "";
+    const users = term
+        ? allUsers.filter((user) => {
+              const name = (user.userName || "").toLowerCase();
+              const email = (user.emailAddress || "").toLowerCase();
+              return name.includes(term) || email.includes(term);
+          })
+        : allUsers;
+
+    users.forEach((user) => {
         const row = document.createElement("div");
         row.className = "group-item";
 
@@ -713,6 +736,8 @@ function openGroupModal() {
     if (!modal) return;
     const nameError = document.getElementById("group-name-error");
     if (nameError) nameError.classList.add("hidden");
+    const searchInput = document.getElementById("group-user-search");
+    if (searchInput) searchInput.value = "";
     renderGroupUserList();
     modal.classList.remove("hidden");
 }
@@ -765,6 +790,265 @@ async function createGroupChat() {
         alert(error.message || "Unable to create group");
     } finally {
         if (createBtn) createBtn.disabled = false;
+    }
+}
+
+function renderGroupMembers(members = []) {
+    const listEl = document.getElementById("group-info-members");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+
+    const disableKicks = members.length <= 3;
+
+    members.forEach((member) => {
+        const row = document.createElement("div");
+        row.className = "group-member";
+
+        const topRow = document.createElement("div");
+        topRow.className = "group-member-row";
+
+        const info = document.createElement("div");
+
+        const nameLine = document.createElement("span");
+        nameLine.className = "group-user-name";
+        nameLine.textContent = member.userName || "User";
+
+        const emailLine = document.createElement("span");
+        emailLine.className = "group-user-email";
+        emailLine.textContent = member.emailAddress || "No email";
+
+        info.appendChild(nameLine);
+        info.appendChild(emailLine);
+
+        const kickBtn = document.createElement("button");
+        kickBtn.className = "kick-btn";
+        kickBtn.type = "button";
+        kickBtn.textContent = "Kick";
+        if (String(member._id) === String(currentUserId)) {
+            kickBtn.disabled = true;
+            kickBtn.textContent = "You";
+        } else if (disableKicks) {
+            kickBtn.disabled = true;
+        } else {
+            kickBtn.addEventListener("click", () => kickGroupMember(member._id));
+        }
+
+        topRow.appendChild(info);
+        topRow.appendChild(kickBtn);
+        row.appendChild(topRow);
+        listEl.appendChild(row);
+    });
+}
+
+function renderAddMembersList(members = [], existingIds = new Set()) {
+    const listEl = document.getElementById("group-add-list");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+
+    const term = groupAddSearchTerm.trim().toLowerCase();
+    const candidates = members.filter((user) => {
+        if (existingIds.has(String(user._id))) return false;
+        if (!term) return true;
+        const name = (user.userName || "").toLowerCase();
+        const email = (user.emailAddress || "").toLowerCase();
+        return name.includes(term) || email.includes(term);
+    });
+    if (!candidates.length) {
+        const empty = document.createElement("div");
+        empty.className = "group-add-empty";
+        empty.textContent = term ? "No users found." : "No more users to add.";
+        listEl.appendChild(empty);
+        return;
+    }
+
+    candidates.forEach((user) => {
+        const row = document.createElement("div");
+        row.className = "group-item";
+
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = user._id;
+
+        const text = document.createElement("span");
+        text.className = "group-user-text";
+
+        const nameLine = document.createElement("span");
+        nameLine.className = "group-user-name";
+        nameLine.textContent = user.userName || "User";
+
+        const emailLine = document.createElement("span");
+        emailLine.className = "group-user-email";
+        emailLine.textContent = user.emailAddress || "No email";
+
+        text.appendChild(nameLine);
+        text.appendChild(emailLine);
+
+        label.appendChild(checkbox);
+        label.appendChild(text);
+        row.appendChild(label);
+        listEl.appendChild(row);
+    });
+}
+
+async function openGroupInfoModal() {
+    if (!activeConversationId || !activeConversation?.isGroup) return;
+    const modal = document.getElementById("group-info-modal");
+    const nameInput = document.getElementById("group-info-name-input");
+    const nameError = document.getElementById("group-info-name-error");
+    if (!modal || !nameInput) return;
+
+    try {
+        const data = await apiRequest(`/api/messages/conversations/${activeConversationId}`);
+        const conversation = data?.conversation;
+        if (conversation) {
+            nameInput.value = conversation.name || "";
+            renderGroupMembers(conversation.participants || []);
+            const updated = normalizeConversation({
+                ...activeConversation,
+                name: conversation.name,
+                isGroup: true,
+                participantCount: (conversation.participants || []).length,
+            });
+            if (updated) {
+                activeConversation = updated;
+                conversationCache.set(updated._id, updated);
+                setChatHeader(updated);
+                renderConversationCache();
+            }
+        }
+        if (nameError) nameError.classList.add("hidden");
+        modal.classList.remove("hidden");
+    } catch (error) {
+        console.error("Failed to load group info:", error.message);
+    }
+}
+
+function closeGroupInfoModal() {
+    const modal = document.getElementById("group-info-modal");
+    if (modal) modal.classList.add("hidden");
+}
+
+async function saveGroupInfo() {
+    if (!activeConversationId || !activeConversation?.isGroup) return;
+    const nameInput = document.getElementById("group-info-name-input");
+    const nameError = document.getElementById("group-info-name-error");
+    const saveBtn = document.getElementById("group-info-save-btn");
+    if (!nameInput) return;
+
+    const name = nameInput.value.trim();
+    if (!name) {
+        if (nameError) nameError.classList.remove("hidden");
+        nameInput.focus();
+        return;
+    }
+
+    try {
+        if (saveBtn) saveBtn.disabled = true;
+        const data = await apiRequest(`/api/messages/conversations/${activeConversationId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ name }),
+        });
+        const updated = normalizeConversation({
+            ...activeConversation,
+            name: data?.conversation?.name || name,
+            isGroup: true,
+        });
+        if (updated) {
+            activeConversation = updated;
+            conversationCache.set(updated._id, updated);
+            setChatHeader(updated);
+            renderConversationCache();
+        }
+        closeGroupInfoModal();
+    } catch (error) {
+        console.error("Failed to update group:", error.message);
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+
+function getGroupExistingIds() {
+    const ids = [];
+    const members = document.querySelectorAll("#group-info-members .group-member");
+    if (members.length && activeConversation?.isGroup) {
+        // Fallback: use cached conversation if available.
+    }
+    if (activeConversation?.isGroup && activeConversation?.participantCount) {
+        // no-op; handled by openGroupAddModal using server data
+    }
+    return new Set(ids);
+}
+
+async function openGroupAddModal() {
+    if (!activeConversationId || !activeConversation?.isGroup) return;
+    const modal = document.getElementById("group-add-modal");
+    const searchInput = document.getElementById("group-add-search");
+    if (!modal) return;
+
+    try {
+        const data = await apiRequest(`/api/messages/conversations/${activeConversationId}`);
+        const conversation = data?.conversation;
+        if (conversation) {
+            const existingIds = new Set(
+                (conversation.participants || []).map((member) => String(member._id))
+            );
+            groupAddExistingIds = existingIds;
+            if (searchInput) searchInput.value = groupAddSearchTerm;
+            renderAddMembersList(allUsers, existingIds);
+        }
+        modal.classList.remove("hidden");
+    } catch (error) {
+        console.error("Failed to load add members:", error.message);
+    }
+}
+
+function closeGroupAddModal() {
+    const modal = document.getElementById("group-add-modal");
+    if (modal) modal.classList.add("hidden");
+}
+
+async function addGroupMembers() {
+    if (!activeConversationId || !activeConversation?.isGroup) return;
+    const listEl = document.getElementById("group-add-list");
+    if (!listEl) return;
+
+    const selected = Array.from(listEl.querySelectorAll("input[type='checkbox']:checked"))
+        .map((input) => input.value);
+    if (!selected.length) return;
+
+    try {
+        const data = await apiRequest(`/api/messages/conversations/${activeConversationId}/members`, {
+            method: "POST",
+            body: JSON.stringify({ participantIds: selected }),
+        });
+        await openGroupInfoModal();
+        if (data?.conversation) {
+            applyConversationUpdate({ ...activeConversation, ...data.conversation });
+        }
+        closeGroupAddModal();
+    } catch (error) {
+        console.error("Failed to add members:", error.message);
+    }
+}
+
+async function kickGroupMember(memberId) {
+    if (!activeConversationId || !activeConversation?.isGroup) return;
+    if (!memberId) return;
+    const shouldKick = window.confirm("Remove this member from the group?");
+    if (!shouldKick) return;
+    try {
+        const data = await apiRequest(
+            `/api/messages/conversations/${activeConversationId}/members/${memberId}`,
+            { method: "DELETE" }
+        );
+        await openGroupInfoModal();
+        if (data?.conversation) {
+            applyConversationUpdate({ ...activeConversation, ...data.conversation });
+        }
+    } catch (error) {
+        console.error("Failed to remove member:", error.message);
+        alert(error.message || "Unable to remove member");
     }
 }
 async function sendImageMessage() {
@@ -978,6 +1262,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const groupCancelBtnFooter = document.getElementById("group-cancel-btn-footer");
     const groupCreateBtn = document.getElementById("group-create-btn");
     const groupModal = document.getElementById("group-modal");
+    const groupUserSearch = document.getElementById("group-user-search");
+    const chatTitle = document.getElementById("chat-title");
+    const groupInfoModal = document.getElementById("group-info-modal");
+    const groupInfoCloseBtn = document.getElementById("group-info-close-btn");
+    const groupInfoCancelBtn = document.getElementById("group-info-cancel-btn");
+    const groupInfoAddBtn = document.getElementById("group-info-add-btn");
+    const groupInfoSaveBtn = document.getElementById("group-info-save-btn");
+    const groupInfoNameInput = document.getElementById("group-info-name-input");
+    const groupInfoNameError = document.getElementById("group-info-name-error");
+    const groupAddModal = document.getElementById("group-add-modal");
+    const groupAddCloseBtn = document.getElementById("group-add-close-btn");
+    const groupAddCancelBtn = document.getElementById("group-add-cancel-btn");
+    const groupAddConfirmBtn = document.getElementById("group-add-confirm-btn");
+    const groupAddSearch = document.getElementById("group-add-search");
     const groupNameInput = document.getElementById("group-name-input");
     const groupNameError = document.getElementById("group-name-error");
 
@@ -1044,6 +1342,72 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         });
     }
+    if (groupUserSearch) {
+        groupUserSearch.addEventListener("input", () => {
+            renderGroupUserList();
+        });
+    }
+
+    if (chatTitle) {
+        chatTitle.addEventListener("click", openGroupInfoModal);
+        chatTitle.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openGroupInfoModal();
+            }
+        });
+    }
+
+    if (groupInfoCloseBtn) {
+        groupInfoCloseBtn.addEventListener("click", closeGroupInfoModal);
+    }
+    if (groupInfoCancelBtn) {
+        groupInfoCancelBtn.addEventListener("click", closeGroupInfoModal);
+    }
+    if (groupInfoSaveBtn) {
+        groupInfoSaveBtn.addEventListener("click", saveGroupInfo);
+    }
+    if (groupInfoAddBtn) {
+        groupInfoAddBtn.addEventListener("click", openGroupAddModal);
+    }
+    if (groupInfoModal) {
+        groupInfoModal.addEventListener("click", (event) => {
+            if (event.target === groupInfoModal) {
+                closeGroupInfoModal();
+            }
+        });
+    }
+    if (groupInfoNameInput && groupInfoNameError) {
+        groupInfoNameInput.addEventListener("input", () => {
+            if (groupInfoNameInput.value.trim()) {
+                groupInfoNameError.classList.add("hidden");
+            }
+        });
+    }
+
+    if (groupAddCloseBtn) {
+        groupAddCloseBtn.addEventListener("click", closeGroupAddModal);
+    }
+    if (groupAddCancelBtn) {
+        groupAddCancelBtn.addEventListener("click", closeGroupAddModal);
+    }
+    if (groupAddConfirmBtn) {
+        groupAddConfirmBtn.addEventListener("click", addGroupMembers);
+    }
+    if (groupAddModal) {
+        groupAddModal.addEventListener("click", (event) => {
+            if (event.target === groupAddModal) {
+                closeGroupAddModal();
+            }
+        });
+    }
+    if (groupAddSearch) {
+        groupAddSearch.addEventListener("input", (event) => {
+            groupAddSearchTerm = event.target.value || "";
+            renderAddMembersList(allUsers, groupAddExistingIds);
+        });
+    }
+
 
     if (userSearchInput) {
         userSearchInput.addEventListener("input", (event) => {

@@ -78,11 +78,49 @@
                 <input type="text" id="group-name-input" class="search-input" placeholder="Group name" aria-describedby="group-name-error">
                 <div id="group-name-error" class="field-error hidden">Field is required</div>
                 <div class="group-subtitle">Select at least 2 users</div>
+                <input type="text" id="group-user-search" class="search-input" placeholder="Search users...">
                 <div class="group-list" id="group-user-list"></div>
             </div>
             <div class="modal-actions">
                 <button class="btn-preview ghost" id="group-cancel-btn-footer" type="button">Cancel</button>
                 <button class="btn-preview" id="group-create-btn" type="button">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="group-info-modal">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="group-info-title">
+            <div class="modal-header">
+                <h3 id="group-info-title">Group Details</h3>
+                <button class="icon-btn" id="group-info-close-btn" type="button">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="group-info-name-input" class="search-input" placeholder="Group name" aria-describedby="group-info-name-error">
+                <div id="group-info-name-error" class="field-error hidden">Field is required</div>
+                <div class="group-subtitle">Members</div>
+                <div class="group-list" id="group-info-members"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-preview ghost" id="group-info-cancel-btn" type="button">Close</button>
+                <button class="btn-preview ghost" id="group-info-add-btn" type="button">Add</button>
+                <button class="btn-preview" id="group-info-save-btn" type="button">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="group-add-modal">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="group-add-title">
+            <div class="modal-header">
+                <h3 id="group-add-title">Add Members</h3>
+                <button class="icon-btn" id="group-add-close-btn" type="button">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="group-add-search" class="search-input" placeholder="Search users...">
+                <div class="group-list" id="group-add-list"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-preview ghost" id="group-add-cancel-btn" type="button">Cancel</button>
+                <button class="btn-preview" id="group-add-confirm-btn" type="button">Add Selected</button>
             </div>
         </div>
     </div>
@@ -93,7 +131,7 @@
                 <img src="Icon/back.png">
             </button>
             <div style="text-align: center; flex: 1;">
-                <div class="page-title" id="chat-title">User Name</div>
+                <div class="page-title chat-title-btn" id="chat-title" role="button" tabindex="0">User Name</div>
                 <div class="active-status" id="chat-status">Active now</div>
             </div>
         </header>

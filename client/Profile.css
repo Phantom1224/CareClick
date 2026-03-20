@@ -112,6 +112,7 @@ header {
 .icon-btn { font-size: 1.2rem; cursor: pointer; background: none; border: none; padding: 5px; color: var(--text-dark); font-weight: bold; }
 .icon-btn img { width: 1.4rem; height: auto; display: block; }
 .page-title { font-weight: 700; font-size: 1.1rem; }
+.chat-title-btn { cursor: pointer; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 
 /* Main Containers */
@@ -168,6 +169,15 @@ header {
 .chat-message { display: flex; flex-direction: column; max-width: 80%; }
 .message-sent { align-self: flex-end; text-align: right; }
 .message-received { align-self: flex-start; text-align: left; }
+.system-message { align-self: center; text-align: center; max-width: 90%; }
+.system-message-text {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    background: #f1f5f9;
+    padding: 6px 10px;
+    border-radius: 999px;
+    display: inline-block;
+}
 .chat-bubble { padding: 12px 16px; border-radius: 20px; font-size: 0.95rem; line-height: 1.4; position: relative; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
 .bubble-received { background: #ffffff; color: var(--text-dark); align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 .bubble-sent { background: var(--primary-green); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
@@ -332,6 +342,44 @@ header {
     justify-content: space-between;
 }
 
+.group-member {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.group-member-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.group-add-empty {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 6px 4px;
+}
+
+.kick-btn {
+    border: none;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.kick-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
 .group-item label {
     display: flex;
     align-items: center;
@@ -349,11 +397,13 @@ header {
     font-size: 0.95rem;
     font-weight: 700;
     color: var(--text-dark);
+    display: block;
 }
 
 .group-user-email {
     font-size: 0.78rem;
     color: var(--text-muted);
+    display: block;
 }
 
 .btn-preview {

@@ -200,6 +200,219 @@ router.get("/conversations/:conversationId/messages", requireAuth, async (req, r
   }
 });
 
+router.get("/conversations/:conversationId", requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const { conversationId } = req.params;
+
+    if (!isValidObjectId(conversationId)) {
+      return sendError(res, 400, "Invalid conversation id");
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    })
+      .populate("participants", "userName emailAddress")
+      .lean();
+
+    if (!conversation) {
+      return sendError(res, 404, "Conversation not found");
+    }
+
+    return sendOk(res, {
+      conversation: {
+        _id: conversation._id,
+        isGroup: conversation.isGroup,
+        name: conversation.name || "Group chat",
+        participants: (conversation.participants || []).map((participant) => ({
+          _id: participant._id,
+          userName: participant.userName,
+          emailAddress: participant.emailAddress,
+        })),
+      },
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load conversation");
+  }
+});
+
+router.patch("/conversations/:conversationId", requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const { conversationId } = req.params;
+    const name = String(req.body.name || "").trim();
+
+    if (!isValidObjectId(conversationId)) {
+      return sendError(res, 400, "Invalid conversation id");
+    }
+
+    if (!name) {
+      return sendError(res, 400, "Group name is required");
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+      isGroup: true,
+    });
+
+    if (!conversation) {
+      return sendError(res, 404, "Conversation not found");
+    }
+
+    conversation.name = name;
+    await conversation.save();
+
+    return sendOk(res, {
+      conversation: {
+        _id: conversation._id,
+        isGroup: true,
+        name: conversation.name,
+      },
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to update group");
+  }
+});
+
+router.post("/conversations/:conversationId/members", requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const { conversationId } = req.params;
+    const participantIds = Array.isArray(req.body.participantIds)
+      ? req.body.participantIds
+      : [];
+
+    if (!isValidObjectId(conversationId)) {
+      return sendError(res, 400, "Invalid conversation id");
+    }
+
+    const normalized = participantIds
+      .map((id) => String(id))
+      .filter((id) => isValidObjectId(id));
+
+    if (!normalized.length) {
+      return sendError(res, 400, "No members selected");
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+      isGroup: true,
+    });
+
+    if (!conversation) {
+      return sendError(res, 404, "Conversation not found");
+    }
+
+    const existing = conversation.participants.map((id) => String(id));
+    const toAdd = normalized.filter((id) => !existing.includes(id));
+    if (!toAdd.length) {
+      return sendError(res, 400, "No new members to add");
+    }
+    const merged = Array.from(new Set([...existing, ...toAdd]));
+
+    conversation.participants = merged;
+    await conversation.save();
+
+    const addedUsers = await User.find({ _id: { $in: toAdd } })
+      .select("userName")
+      .lean();
+    const now = new Date();
+    const systemMessages = await Promise.all(
+      addedUsers.map((user) =>
+        Message.create({
+          conversation: conversationId,
+          sender: userId,
+          messageType: "system",
+          body: `${user.userName || "A user"} was added to the group`,
+          createdAt: now,
+        })
+      )
+    );
+
+    const lastSystem = systemMessages[systemMessages.length - 1];
+    if (lastSystem) {
+      conversation.lastMessageText = lastSystem.body;
+      conversation.lastMessageAt = lastSystem.createdAt;
+      conversation.lastMessageSender = userId;
+      await conversation.save();
+    }
+
+    return sendOk(res, {
+      conversation: {
+        _id: conversation._id,
+        isGroup: true,
+        participantCount: conversation.participants.length,
+      },
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to add members");
+  }
+});
+
+router.delete("/conversations/:conversationId/members/:memberId", requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const { conversationId, memberId } = req.params;
+
+    if (!isValidObjectId(conversationId) || !isValidObjectId(memberId)) {
+      return sendError(res, 400, "Invalid request");
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+      isGroup: true,
+    });
+
+    if (!conversation) {
+      return sendError(res, 404, "Conversation not found");
+    }
+
+    if (String(memberId) === String(userId)) {
+      return sendError(res, 400, "Cannot remove yourself");
+    }
+
+    const filtered = conversation.participants.filter(
+      (id) => String(id) !== String(memberId)
+    );
+
+    if (filtered.length < 3) {
+      return sendError(res, 400, "Group must have at least 3 participants");
+    }
+
+    conversation.participants = filtered;
+    await conversation.save();
+
+    const removedUser = await User.findById(memberId).select("userName").lean();
+    const systemMessage = await Message.create({
+      conversation: conversationId,
+      sender: userId,
+      messageType: "system",
+      body: `${removedUser?.userName || "A user"} was removed from the group`,
+    });
+
+    if (systemMessage) {
+      conversation.lastMessageText = systemMessage.body;
+      conversation.lastMessageAt = systemMessage.createdAt;
+      conversation.lastMessageSender = userId;
+      await conversation.save();
+    }
+
+    return sendOk(res, {
+      conversation: {
+        _id: conversation._id,
+        isGroup: true,
+        participantCount: conversation.participants.length,
+      },
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to remove member");
+  }
+});
+
 router.get("/notifications", requireAuth, async (req, res) => {
   try {
     const userId = req.auth.userId;

@@ -10,7 +10,10 @@ const conversationSchema = new mongoose.Schema(
     participants: [
       { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     ],
-    participantsKey: { type: String, required: true, unique: true, index: true },
+    participantsKey: { type: String, unique: true, sparse: true, index: true },
+    isGroup: { type: Boolean, default: false },
+    name: { type: String, default: "" },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     lastMessageText: { type: String, default: "" },
     lastMessageAt: { type: Date, default: null },
     lastMessageSender: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
@@ -19,10 +22,14 @@ const conversationSchema = new mongoose.Schema(
 );
 
 conversationSchema.pre("validate", function (next) {
-  if (!Array.isArray(this.participants) || this.participants.length !== 2) {
-    return next(new Error("Conversation must have exactly two participants"));
+  if (!Array.isArray(this.participants) || this.participants.length < 2) {
+    return next(new Error("Conversation must have at least two participants"));
   }
-  this.participantsKey = buildParticipantsKey(this.participants);
+  if (this.isGroup) {
+    this.participantsKey = null;
+  } else {
+    this.participantsKey = buildParticipantsKey(this.participants);
+  }
   return next();
 });
 

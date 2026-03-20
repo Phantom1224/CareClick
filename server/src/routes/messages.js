@@ -29,15 +29,41 @@ const imageUpload = multer({
 });
 
 function buildConversationSummary(conversation, userId, now) {
-  const other = conversation.participants.find(
+  const senderId = conversation.lastMessageSender
+    ? String(conversation.lastMessageSender)
+    : null;
+  const participants = Array.isArray(conversation.participants)
+    ? conversation.participants
+    : [];
+  const senderParticipant = senderId
+    ? participants.find((participant) => String(participant._id) === senderId)
+    : null;
+  const lastMessageSenderName = senderParticipant?.userName || null;
+  if (conversation.isGroup) {
+    const participantCount = participants.length;
+    return {
+      _id: conversation._id,
+      isGroup: true,
+      name: conversation.name || "Group chat",
+      participantCount,
+      lastMessageText: conversation.lastMessageText || "",
+      lastMessageAt: conversation.lastMessageAt || conversation.updatedAt,
+      lastMessageSenderId: conversation.lastMessageSender || null,
+      lastMessageSenderName,
+    };
+  }
+
+  const other = participants.find(
     (participant) => participant._id.toString() !== userId
   );
 
   return {
     _id: conversation._id,
+    isGroup: false,
     lastMessageText: conversation.lastMessageText || "",
     lastMessageAt: conversation.lastMessageAt || conversation.updatedAt,
     lastMessageSenderId: conversation.lastMessageSender || null,
+    lastMessageSenderName,
       otherUser: other
         ? {
             _id: other._id,
@@ -155,6 +181,7 @@ router.get("/conversations/:conversationId/messages", requireAuth, async (req, r
     const messages = await Message.find(query)
       .sort({ createdAt: 1 })
       .limit(limit)
+      .populate("sender", "userName")
       .lean();
 
     const payload = messages.map((message) => ({
@@ -162,7 +189,8 @@ router.get("/conversations/:conversationId/messages", requireAuth, async (req, r
       body: message.body,
       messageType: message.messageType || "text",
       image: message.image || null,
-      senderId: message.sender,
+      senderId: message.sender?._id || message.sender,
+      senderName: message.sender?.userName || "User",
       createdAt: message.createdAt,
     }));
 
@@ -262,6 +290,7 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
     conversation.lastMessageSender = userId;
     await conversation.save();
 
+    const sender = await User.findById(userId).select("userName").lean();
     return sendCreated(res, {
       message: {
         _id: message._id,
@@ -269,11 +298,56 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
         messageType: message.messageType || "text",
         image: message.image || null,
         senderId: message.sender,
+        senderName: sender?.userName || "You",
         createdAt: message.createdAt,
       },
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to send message");
+  }
+});
+
+router.post("/conversations/group", requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const name = String(req.body.name || "").trim();
+    const participantIds = Array.isArray(req.body.participantIds)
+      ? req.body.participantIds
+      : [];
+
+    const normalized = participantIds
+      .map((id) => String(id))
+      .filter((id) => isValidObjectId(id));
+    const uniqueIds = Array.from(new Set([userId, ...normalized]));
+
+    if (!name) {
+      return sendError(res, 400, "Group name is required");
+    }
+
+    if (uniqueIds.length < 3) {
+      return sendError(res, 400, "Group must have at least 3 participants");
+    }
+
+    const conversation = await Conversation.create({
+      isGroup: true,
+      name,
+      createdBy: userId,
+      participants: uniqueIds,
+    });
+
+    return sendCreated(res, {
+      conversation: {
+        _id: conversation._id,
+        isGroup: true,
+        name: conversation.name,
+        participantCount: uniqueIds.length,
+        lastMessageText: conversation.lastMessageText || "",
+        lastMessageAt: conversation.lastMessageAt || conversation.updatedAt,
+        lastMessageSenderId: conversation.lastMessageSender || null,
+      },
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to create group");
   }
 });
 
@@ -352,6 +426,7 @@ router.post("/conversations/:conversationId/images", requireAuth, chatImageUploa
     conversation.lastMessageSender = userId;
     await conversation.save();
 
+    const sender = await User.findById(userId).select("userName").lean();
     return sendCreated(res, {
       message: {
         _id: message._id,
@@ -359,6 +434,7 @@ router.post("/conversations/:conversationId/images", requireAuth, chatImageUploa
         messageType: message.messageType,
         image: message.image || null,
         senderId: message.sender,
+        senderName: sender?.userName || "You",
         createdAt: message.createdAt,
       },
     });

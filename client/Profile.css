@@ -110,7 +110,9 @@ header {
 }
 
 .icon-btn { font-size: 1.2rem; cursor: pointer; background: none; border: none; padding: 5px; color: var(--text-dark); font-weight: bold; }
+.icon-btn img { width: 1.4rem; height: auto; display: block; }
 .page-title { font-weight: 700; font-size: 1.1rem; }
+.header-actions { display: flex; align-items: center; gap: 8px; }
 
 /* Main Containers */
 .content-container { flex: 1; padding: 0px 20px 100px 20px; }
@@ -255,6 +257,118 @@ header {
     width: 14px;
     height: 14px;
     display: block;
+}
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 200;
+}
+
+.modal-card {
+    width: min(92vw, 420px);
+    background: var(--white);
+    border-radius: 18px;
+    padding: 16px 18px 18px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.field-error {
+    font-size: 0.8rem;
+    color: #ef4444;
+    margin-top: -4px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 14px;
+}
+
+.group-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.group-list {
+    max-height: 240px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.group-item {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.group-item label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.group-user-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.group-user-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.group-user-email {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.btn-preview {
+    border: none;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 700;
+    cursor: pointer;
+    background: var(--primary-green);
+    color: #ffffff;
+}
+
+.btn-preview.ghost {
+    background: #eef2f7;
+    color: var(--text-dark);
 }
 
 /* Call Screen Styles */

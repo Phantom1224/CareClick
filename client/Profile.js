@@ -18,6 +18,7 @@ let currentUserId = null;
 let conversationPollId = null;
 let messagePollId = null;
 let activeConversationId = null;
+let activeConversation = null;
 let lastMessageCursor = null;
 const conversationCache = new Map();
 let allUsers = [];
@@ -117,7 +118,24 @@ function buildAvatarText(name = "") {
 
 function normalizeConversation(raw) {
     if (!raw) return null;
-    if (raw.otherUser) return raw;
+    if (raw.isGroup) {
+        return {
+            _id: raw._id,
+            isGroup: true,
+            name: raw.name || "Group chat",
+            participantCount: raw.participantCount || 0,
+            lastMessageText: raw.lastMessageText || "",
+            lastMessageAt: raw.lastMessageAt || raw.updatedAt,
+            lastMessageSenderId: raw.lastMessageSenderId || null,
+            lastMessageSenderName: raw.lastMessageSenderName || null,
+        };
+    }
+    if (raw.otherUser) {
+        return {
+            ...raw,
+            lastMessageSenderName: raw.lastMessageSenderName || null,
+        };
+    }
     const participants = Array.isArray(raw.participants) ? raw.participants : [];
     const other = participants.find((participant) => participant._id !== currentUserId);
     return {
@@ -125,6 +143,7 @@ function normalizeConversation(raw) {
         lastMessageText: raw.lastMessageText || "",
         lastMessageAt: raw.lastMessageAt || raw.updatedAt,
         lastMessageSenderId: raw.lastMessageSenderId || null,
+        lastMessageSenderName: raw.lastMessageSenderName || null,
         otherUser: other
             ? {
                   _id: other._id,
@@ -165,7 +184,9 @@ function renderConversations(conversations = [], { replaceCache = true } = {}) {
 
         const avatar = document.createElement("div");
         avatar.className = "msg-avatar avatar-lime";
-        avatar.textContent = buildAvatarText(other.userName);
+        avatar.textContent = buildAvatarText(
+            conversation.isGroup ? conversation.name || "G" : other.userName
+        );
 
         const body = document.createElement("div");
         body.className = "msg-body";
@@ -175,28 +196,36 @@ function renderConversations(conversations = [], { replaceCache = true } = {}) {
 
         const name = document.createElement("span");
         name.className = "msg-name";
-        name.textContent = other.userName || "Unknown user";
+        name.textContent = conversation.isGroup
+            ? (conversation.name || "Group chat")
+            : (other.userName || "Unknown user");
 
         const time = document.createElement("span");
         time.className = "msg-time";
         time.textContent = formatTime(conversation.lastMessageAt);
 
-        const text = document.createElement("p");
-        text.className = "msg-text";
-        const lastText = conversation.lastMessageText || "Start the conversation";
-        if (conversation.lastMessageSenderId && currentUserId) {
-            if (String(conversation.lastMessageSenderId) === String(currentUserId)) {
-                text.textContent = `Me: ${lastText}`;
-            } else {
-                text.textContent = lastText;
-            }
-        } else {
-            text.textContent = lastText;
-        }
-
         header.appendChild(name);
         header.appendChild(time);
         body.appendChild(header);
+
+        const text = document.createElement("p");
+        text.className = "msg-text";
+        const lastText = conversation.lastMessageText || "Start the conversation";
+        const hasSenderId = Boolean(conversation.lastMessageSenderId);
+        const isMe =
+            hasSenderId && currentUserId
+                ? String(conversation.lastMessageSenderId) === String(currentUserId)
+                : false;
+        const senderName =
+            isMe ? "Me" : (conversation.lastMessageSenderName || other.userName || "User");
+
+        if (conversation.isGroup) {
+            text.textContent = `${senderName}: ${lastText}`;
+        } else if (isMe) {
+            text.textContent = `Me: ${lastText}`;
+        } else {
+            text.textContent = lastText;
+        }
         body.appendChild(text);
         row.appendChild(avatar);
         row.appendChild(body);
@@ -305,6 +334,7 @@ async function loadUserDirectory() {
         const data = await apiRequest("/api/users/location-feed");
         allUsers = (data?.users || []).filter((user) => user._id !== currentUserId);
         renderUserDirectory(getFilteredUsers());
+        renderGroupUserList();
     } catch (error) {
         console.error("Failed to load users:", error.message);
     }
@@ -356,11 +386,16 @@ function setChatHeader(conversation) {
     const other = conversation?.otherUser || {};
 
     if (titleEl) {
-        titleEl.textContent = other.userName || "Conversation";
+        titleEl.textContent = conversation?.isGroup
+            ? (conversation.name || "Group chat")
+            : (other.userName || "Conversation");
     }
 
     if (statusEl) {
-        if (other.isOnline) {
+        if (conversation?.isGroup) {
+            const count = conversation.participantCount || 0;
+            statusEl.textContent = `Group chat • ${count} members`;
+        } else if (other.isOnline) {
             statusEl.textContent = "Active now";
         } else if (other.lastSeenAt) {
             statusEl.textContent = `Last seen ${new Date(other.lastSeenAt).toLocaleString()}`;
@@ -380,6 +415,14 @@ function renderMessageBubble(message, { status, tempId, localImageUrl } = {}) {
 
     const bubble = document.createElement("div");
     bubble.className = `chat-bubble ${isSent ? "bubble-sent" : "bubble-received"}`;
+    if (activeConversation?.isGroup && !isSent) {
+        const senderLabel = document.createElement("div");
+        senderLabel.style.fontSize = "0.7rem";
+        senderLabel.style.color = "#64748b";
+        senderLabel.style.marginBottom = "4px";
+        senderLabel.textContent = message.senderName || "User";
+        bubble.appendChild(senderLabel);
+    }
     if (message.messageType === "image" && (message.image?.fileId || localImageUrl)) {
         const img = document.createElement("img");
         img.src = message.image?.fileId
@@ -394,7 +437,13 @@ function renderMessageBubble(message, { status, tempId, localImageUrl } = {}) {
             bubble.dataset.imageFileId = String(message.image.fileId);
         }
     } else {
-        bubble.textContent = message.body;
+        if (activeConversation?.isGroup && !isSent) {
+            const textLine = document.createElement("div");
+            textLine.textContent = message.body;
+            bubble.appendChild(textLine);
+        } else {
+            bubble.textContent = message.body;
+        }
     }
     if (message._id) {
         bubble.dataset.messageId = String(message._id);
@@ -624,6 +673,100 @@ async function sendMessage() {
     }
 }
 
+function renderGroupUserList() {
+    const listEl = document.getElementById("group-user-list");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+
+    allUsers.forEach((user) => {
+        const row = document.createElement("div");
+        row.className = "group-item";
+
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = user._id;
+
+        const text = document.createElement("span");
+        text.className = "group-user-text";
+
+        const nameLine = document.createElement("span");
+        nameLine.className = "group-user-name";
+        nameLine.textContent = user.userName || "User";
+
+        const emailLine = document.createElement("span");
+        emailLine.className = "group-user-email";
+        emailLine.textContent = user.emailAddress || "No email";
+
+        text.appendChild(nameLine);
+        text.appendChild(emailLine);
+
+        label.appendChild(checkbox);
+        label.appendChild(text);
+        row.appendChild(label);
+        listEl.appendChild(row);
+    });
+}
+
+function openGroupModal() {
+    const modal = document.getElementById("group-modal");
+    if (!modal) return;
+    const nameError = document.getElementById("group-name-error");
+    if (nameError) nameError.classList.add("hidden");
+    renderGroupUserList();
+    modal.classList.remove("hidden");
+}
+
+function closeGroupModal() {
+    const modal = document.getElementById("group-modal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    const nameInput = document.getElementById("group-name-input");
+    if (nameInput) nameInput.value = "";
+    const nameError = document.getElementById("group-name-error");
+    if (nameError) nameError.classList.add("hidden");
+}
+
+async function createGroupChat() {
+    const nameInput = document.getElementById("group-name-input");
+    const listEl = document.getElementById("group-user-list");
+    const createBtn = document.getElementById("group-create-btn");
+    if (!nameInput || !listEl) return;
+
+    const name = nameInput.value.trim();
+    const checked = Array.from(listEl.querySelectorAll("input[type='checkbox']:checked"))
+        .map((input) => input.value);
+
+    if (!name) {
+        const nameError = document.getElementById("group-name-error");
+        if (nameError) nameError.classList.remove("hidden");
+        nameInput.focus();
+        return;
+    }
+
+    if (checked.length < 2) {
+        alert("Select at least 2 users.");
+        return;
+    }
+
+    try {
+        if (createBtn) createBtn.disabled = true;
+        const data = await apiRequest("/api/messages/conversations/group", {
+            method: "POST",
+            body: JSON.stringify({ name, participantIds: checked }),
+        });
+        const conversation = normalizeConversation(data?.conversation);
+        if (conversation) {
+            conversationCache.set(conversation._id, conversation);
+            openChatByConversationId(conversation._id);
+        }
+        closeGroupModal();
+    } catch (error) {
+        alert(error.message || "Unable to create group");
+    } finally {
+        if (createBtn) createBtn.disabled = false;
+    }
+}
 async function sendImageMessage() {
     const sendBtn = document.getElementById("chat-send-btn");
     const preview = document.getElementById("chat-image-preview");
@@ -765,6 +908,7 @@ function openChatByConversationId(conversationId) {
     }
 
     activeConversationId = conversationId;
+    activeConversation = conversation;
 
     hideAllViews();
     hideElement("main-nav");
@@ -812,6 +956,7 @@ function applyConversationUpdate(conversation) {
     renderConversationCache();
 
     if (normalized._id === activeConversationId) {
+        activeConversation = normalized;
         setChatHeader(normalized);
     }
 }
@@ -828,6 +973,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const imagePreview = document.getElementById("chat-image-preview");
     const imagePreviewImg = document.getElementById("chat-image-preview-img");
     const imageCancelBtn = document.getElementById("chat-image-cancel-btn");
+    const createGroupBtn = document.getElementById("create-group-btn");
+    const groupCancelBtn = document.getElementById("group-cancel-btn");
+    const groupCancelBtnFooter = document.getElementById("group-cancel-btn-footer");
+    const groupCreateBtn = document.getElementById("group-create-btn");
+    const groupModal = document.getElementById("group-modal");
+    const groupNameInput = document.getElementById("group-name-input");
+    const groupNameError = document.getElementById("group-name-error");
 
     if (sendBtn) {
         sendBtn.addEventListener("click", sendMessage);
@@ -873,10 +1025,38 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    if (createGroupBtn) {
+        createGroupBtn.addEventListener("click", openGroupModal);
+    }
+    if (groupCancelBtn) {
+        groupCancelBtn.addEventListener("click", closeGroupModal);
+    }
+    if (groupCancelBtnFooter) {
+        groupCancelBtnFooter.addEventListener("click", closeGroupModal);
+    }
+    if (groupCreateBtn) {
+        groupCreateBtn.addEventListener("click", createGroupChat);
+    }
+    if (groupModal) {
+        groupModal.addEventListener("click", (event) => {
+            if (event.target === groupModal) {
+                closeGroupModal();
+            }
+        });
+    }
+
     if (userSearchInput) {
         userSearchInput.addEventListener("input", (event) => {
             searchTerm = event.target.value || "";
             renderUserDirectory(getFilteredUsers());
+        });
+    }
+
+    if (groupNameInput && groupNameError) {
+        groupNameInput.addEventListener("input", () => {
+            if (groupNameInput.value.trim()) {
+                groupNameError.classList.add("hidden");
+            }
         });
     }
 

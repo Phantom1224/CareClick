@@ -46,9 +46,14 @@
             <button class="icon-btn" onclick="openProfile()">
                 <img src="Icon/back.png">
             </button>
-            <button class="icon-btn" id="search-toggle-btn" onclick="toggleUserSearch()">
-                <img src="Icon/Search.png" alt="Search" style="width: 20px; height: 20px;">
-            </button>
+            <div class="header-actions">
+                <button class="icon-btn" id="search-toggle-btn" onclick="toggleUserSearch()">
+                    <img src="Icon/Search.png" alt="Search" style="width: 20px; height: 20px;">
+                </button>
+                <button class="icon-btn" id="create-group-btn" type="button" aria-label="Create group chat">
+                    <img src="Icon/add-group.png" alt="">
+                </button>
+            </div>
         </header>
 
         <main class="content-container">
@@ -61,6 +66,25 @@
             <div id="users-empty" class="msg-empty hidden">No other users found.</div>
             <div id="users-list"></div>
         </main>
+    </div>
+
+    <div class="modal-backdrop hidden" id="group-modal">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="group-modal-title">
+            <div class="modal-header">
+                <h3 id="group-modal-title">Create Group Chat</h3>
+                <button class="icon-btn" id="group-cancel-btn" type="button">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="group-name-input" class="search-input" placeholder="Group name" aria-describedby="group-name-error">
+                <div id="group-name-error" class="field-error hidden">Field is required</div>
+                <div class="group-subtitle">Select at least 2 users</div>
+                <div class="group-list" id="group-user-list"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-preview ghost" id="group-cancel-btn-footer" type="button">Cancel</button>
+                <button class="btn-preview" id="group-create-btn" type="button">Create</button>
+            </div>
+        </div>
     </div>
 
     <div id="view-chat" class="hidden">

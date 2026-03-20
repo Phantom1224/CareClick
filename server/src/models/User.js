@@ -38,6 +38,13 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    validIdImage: {
+      fileId: mongoose.Schema.Types.ObjectId,
+      filename: String,
+      mime: String,
+      originalName: String,
+      uploadedAt: Date,
+    },
   },
   { timestamps: true }
 );

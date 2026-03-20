@@ -3,6 +3,7 @@ const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const messageRoutes = require("./routes/messages");
 const adminRoutes = require("./routes/admin");
+const fileRoutes = require("./routes/files");
 
 function createApp({ onRequest } = {}) {
   const app = express();
@@ -20,6 +21,7 @@ function createApp({ onRequest } = {}) {
   app.use("/api/users", userRoutes);
   app.use("/api/messages", messageRoutes);
   app.use("/api/admin", adminRoutes);
+  app.use("/api/files", fileRoutes);
 
   return app;
 }

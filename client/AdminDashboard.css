@@ -176,6 +176,31 @@ body {
     flex-wrap: wrap;
 }
 
+.id-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+
+.id-thumb {
+    width: 46px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+
+.id-link {
+    font-size: 0.85rem;
+    color: var(--primary-blue);
+    font-weight: 700;
+    text-decoration: none;
+}
+
 .btn {
     border: none;
     border-radius: 12px;

@@ -9,7 +9,6 @@ dotenv.config();
 const app = createApp();
 const port = Number(process.env.PORT) || 5000;
 const clientDir = path.resolve(__dirname, "../../client");
-
 app.use(express.static(clientDir));
 
 app.get("/", (_req, res) => {

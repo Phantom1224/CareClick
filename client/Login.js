@@ -99,6 +99,24 @@ async function postJson(path, payload) {
     });
 }
 
+async function postForm(path, formData) {
+    const response = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+    });
+    let data = {};
+    try {
+        data = await response.json();
+    } catch (_error) {
+        data = {};
+    }
+    if (!response.ok) {
+        throw new Error(data.message || "Request failed");
+    }
+    return data;
+}
+
 async function handleLogin(event) {
     event.preventDefault();
     clearMessages();
@@ -142,6 +160,8 @@ async function handleSignup(event) {
     const emailAddress = document.getElementById("signup-email").value.trim().toLowerCase();
     const password = document.getElementById("signup-password").value;
     const confirmPassword = document.getElementById("signup-confirm-password").value;
+    const idInput = document.getElementById("signup-student-id");
+    const idFile = idInput?.files?.[0] || null;
     const submitBtn = document.querySelector("#signup-form button[type='submit']");
     const originalSubmitLabel = submitBtn ? submitBtn.textContent : "";
 
@@ -152,6 +172,16 @@ async function handleSignup(event) {
 
     if (password !== confirmPassword) {
         setMessage("signup-message", "Passwords do not match.", true);
+        return;
+    }
+
+    if (!idFile) {
+        setMessage("signup-message", "Valid ID image is required.", true);
+        return;
+    }
+
+    if (!["image/jpeg", "image/png"].includes(idFile.type)) {
+        setMessage("signup-message", "Valid ID must be a JPEG or PNG image.", true);
         return;
     }
 
@@ -170,12 +200,14 @@ async function handleSignup(event) {
     }
 
     try {
-        await postJson("/api/auth/signup/request-code", {
-            userName,
-            emailAddress,
-            password,
-            confirmPassword,
-        });
+        const formData = new FormData();
+        formData.append("userName", userName);
+        formData.append("emailAddress", emailAddress);
+        formData.append("password", password);
+        formData.append("confirmPassword", confirmPassword);
+        formData.append("studentIdImage", idFile);
+
+        await postForm("/api/auth/signup/request-code", formData);
 
         pendingSignupEmail = emailAddress;
         setOtpInputsDisabled(false);

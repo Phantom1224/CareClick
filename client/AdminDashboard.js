@@ -130,6 +130,26 @@ function renderUserCard(user) {
     actions.appendChild(deleteBtn);
 
     card.appendChild(headerRow);
+    if (user.validIdImage?.fileId) {
+        const idRow = document.createElement("div");
+        idRow.className = "id-preview";
+
+        const img = document.createElement("img");
+        img.className = "id-thumb";
+        img.alt = "Valid ID preview";
+        img.src = `/api/files/student-id/${user.validIdImage.fileId}`;
+
+        const link = document.createElement("a");
+        link.className = "id-link";
+        link.href = `/api/files/student-id/${user.validIdImage.fileId}`;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = "View ID";
+
+        idRow.appendChild(img);
+        idRow.appendChild(link);
+        card.appendChild(idRow);
+    }
     card.appendChild(actions);
 
     return card;

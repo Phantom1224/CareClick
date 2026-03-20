@@ -1,8 +1,10 @@
 const bcrypt = require("bcryptjs");
 const express = require("express");
 const jwt = require("jsonwebtoken");
+const multer = require("multer");
 const nodemailer = require("nodemailer");
 const User = require("../models/User");
+const mongoose = require("mongoose");
 const { sendError, sendOk, sendCreated } = require("../utils/http");
 const {
   normalizeEmail,
@@ -29,6 +31,18 @@ const pendingSignups = new Map();
 const pendingPasswordResets = new Map();
 const otpRequestInFlight = new Set();
 let mailTransporter = null;
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const isValid = ["image/jpeg", "image/png"].includes(file.mimetype);
+    if (!isValid) {
+      return cb(new Error("Only JPEG and PNG images are allowed"));
+    }
+    return cb(null, true);
+  },
+});
 
 function buildToken(user) {
   return jwt.sign(
@@ -91,12 +105,51 @@ function duplicateErrorResponse(error, res) {
   return sendError(res, 409, "Duplicate value already exists");
 }
 
-router.post("/signup/request-code", async (req, res) => {
+const signupIdUpload = (req, res, next) => {
+  upload.single("studentIdImage")(req, res, (error) => {
+    if (error) {
+      return sendError(res, 400, error.message || "Unable to upload ID image");
+    }
+    return next();
+  });
+};
+
+function getStudentIdBucket() {
+  if (!mongoose.connection?.db) {
+    throw new Error("Database not connected");
+  }
+  return new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+    bucketName: "studentIds",
+  });
+}
+
+function uploadStudentIdToGridFS(file) {
+  return new Promise((resolve, reject) => {
+    const bucket = getStudentIdBucket();
+    const uploadStream = bucket.openUploadStream(file.originalname || "student-id", {
+      contentType: file.mimetype,
+      metadata: {
+        originalName: file.originalname,
+        uploadedAt: new Date(),
+      },
+    });
+
+    uploadStream.on("error", reject);
+    uploadStream.on("finish", () => resolve(uploadStream.id));
+    uploadStream.end(file.buffer);
+  });
+}
+
+router.post("/signup/request-code", signupIdUpload, async (req, res) => {
   try {
     const { userName, emailAddress, password, confirmPassword } = req.body;
 
     if (!userName || !emailAddress || !password || !confirmPassword) {
       return sendError(res, 400, "All required fields must be provided");
+    }
+
+    if (!req.file) {
+      return sendError(res, 400, "Valid ID image is required");
     }
 
     if (password !== confirmPassword) {
@@ -127,6 +180,7 @@ router.post("/signup/request-code", async (req, res) => {
       );
     }
 
+    const fileId = await uploadStudentIdToGridFS(req.file);
     const code = generateOtpCode();
     const passwordHash = await bcrypt.hash(password, 10);
 
@@ -134,6 +188,13 @@ router.post("/signup/request-code", async (req, res) => {
       userName: trimmedUserName,
       emailAddress: normalizedEmail,
       passwordHash,
+      validIdImage: {
+        fileId,
+        filename: req.file.originalname || "student-id",
+        mime: req.file.mimetype,
+        originalName: req.file.originalname,
+        uploadedAt: new Date(),
+      },
       codeHash: hashOtp(code),
       expiresAt: now + otpExpiresMs(),
       resendAvailableAt: now + OTP_RESEND_COOLDOWN_MS,
@@ -221,6 +282,7 @@ router.post("/signup/verify-code", async (req, res) => {
       emailAddress: pending.emailAddress,
       passwordHash: pending.passwordHash,
       role: "user",
+      validIdImage: pending.validIdImage,
     });
 
     pendingSignups.delete(normalizedEmail);

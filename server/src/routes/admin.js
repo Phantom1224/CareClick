@@ -18,6 +18,7 @@ router.get("/users", requireAuth, requireAdmin, async (_req, res) => {
       userName: user.userName,
       emailAddress: user.emailAddress,
       role: user.role,
+      validIdImage: user.validIdImage || null,
       createdAt: user.createdAt,
       lastSeenAt: user.lastSeenAt || null,
     }));

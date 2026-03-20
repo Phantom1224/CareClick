@@ -86,8 +86,12 @@
         return `${trimmed.slice(0, Math.max(0, maxLen - 3))}...`;
     };
 
-    CareClick.openChatWithUserId = function openChatWithUserId(userId, path = "Profile.html") {
+    CareClick.openChatWithUserId = function openChatWithUserId(userId, path = "Main.html") {
         if (!userId) return;
+        if (typeof CareClick.openChatInMain === "function") {
+            CareClick.openChatInMain(userId);
+            return;
+        }
         localStorage.setItem(PENDING_CHAT_USER_KEY, userId);
         window.location.href = path;
     };

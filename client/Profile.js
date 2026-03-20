@@ -66,6 +66,9 @@ async function loadProfile() {
         const data = await apiRequest("/api/users/me");
         setProfileDetails(data?.user);
         currentUserId = data?.user?._id || null;
+        if (typeof CareClick.setCurrentUserId === "function") {
+            CareClick.setCurrentUserId(currentUserId);
+        }
     } catch (error) {
         console.error("Failed to load profile:", error.message);
     }
@@ -1440,9 +1443,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         startConversationWithUser(pendingUserId);
     }
 
-    startNotificationPolling();
+    // Global notification poller is handled in Main.js.
 });
 
 window.addEventListener("beforeunload", () => {
-    stopNotificationPolling();
+    // Global notification poller is handled in Main.js.
 });

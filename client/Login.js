@@ -141,7 +141,7 @@ async function handleLogin(event) {
         if (data?.user?.role === "admin") {
             window.location.href = "AdminDashboard.html";
         } else {
-            window.location.href = "Home.html";
+            window.location.href = "Main.html";
         }
     } catch (error) {
         setMessage("login-message", error.message, true);
@@ -466,7 +466,7 @@ async function checkExistingSession() {
         if (data?.user?.role === "admin") {
             window.location.href = "AdminDashboard.html";
         } else if (data?.user) {
-            window.location.href = "Home.html";
+            window.location.href = "Main.html";
         }
         return true;
     } catch (_error) {

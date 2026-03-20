@@ -16,7 +16,7 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/home", (_req, res) => {
-  res.sendFile(path.join(clientDir, "Home.html"));
+  res.sendFile(path.join(clientDir, "Main.html"));
 });
 
 app.use((_req, res) => {

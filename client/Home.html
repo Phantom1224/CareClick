@@ -3,78 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CareClick - Home</title>
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossorigin=""
-    >
-    <link rel="stylesheet" href="Home.css">
+    <meta http-equiv="refresh" content="0; url=Main.html">
+    <title>CareClick - Main</title>
 </head>
 <body>
-
-    <div id="view-home">
-        <!-- <div class="map-overlay-header">
-            <div>
-                <h1 class="logo">Care<span>Click</span></h1>
-                <p id="live-location" class="live-location">Locating...</p>
-            </div>
-            <img src="Icon/Search.png" alt="Avatar" class="icon">
-        </div> -->
-
-        <div id="map"></div>
-        <div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
-
-        <div class="sos-button" id="sos-btn" onclick="requestHelp()">
-            <img src="Icon/Hand.png" alt="Avatar" class="icon">
-        </div>
-
-        <div id="incoming-modal" class="request-card hidden">
-            <div class="profile-avatar">
-                <img src="Icon/new-profile.png" alt="Avatar" class="icon">
-            </div>
-            <h2 id="incoming-title"><span id="incoming-username">User</span></h2>
-            <div class="modal-btn-group">
-                <button class="btn-modal btn-reject" onclick="closeModal()">Cancel</button>
-                <button class="btn-modal btn-accept" onclick="openChatFromModal()">Open chat</button>
-            </div>
-        </div>
-
-        <div id="request-panel" class="bottom-panel hidden">
-            <div class="panel-title">Requesting for help...</div>
-            <button class="btn-action btn-cancel" onclick="cancelRequest()">Cancel</button>
-        </div>
-
-        <div id="location-panel" class="bottom-panel hidden">
-            <div class="location-header">
-                <div class="panel-title no-margin">Showing Location</div>
-                <button class="btn-action btn-done" onclick="resetHome()">Done</button>
-            </div>
-        </div>
-
-    </div>
-
-    <nav class="bottom-nav">
-        <div class="nav-item" onclick="resetHome()">
-            <img src="Icon/Home.png" alt="Home" class="icon">
-        </div>
-
-        <div class="nav-others" onclick="window.location.href='Profile.html'">
-            <img src="Icon/Profile-black.png" alt="Profile" class="icon">
-        </div>
-
-        <div class="nav-others" onclick="window.location.href='Menu.html'">
-            <img src="Icon/menu.png" style="width: 18px;">
-        </div>
-    </nav>
-
-    <script
-        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        crossorigin=""
-    ></script>
-    <script src="shared.js"></script>
-    <script src="Home.js"></script>
+    <script>
+        window.location.replace("Main.html");
+    </script>
 </body>
 </html>

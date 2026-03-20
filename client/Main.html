@@ -1,0 +1,892 @@
+﻿
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CareClick - Main</title>
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    >
+    <link rel="stylesheet" href="Main.css">
+    <link rel="stylesheet" href="Home.css" id="style-home">
+    <link rel="stylesheet" href="Menu.css" id="style-menu" disabled>
+    <link rel="stylesheet" href="Profile.css" id="style-profile" disabled>
+</head>
+<body>
+    <div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+    <section id="app-home" class="main-view">
+        <div id="view-home">
+            <!-- <div class="map-overlay-header">
+                <div>
+                    <h1 class="logo">Care<span>Click</span></h1>
+                    <p id="live-location" class="live-location">Locating...</p>
+                </div>
+                <img src="Icon/Search.png" alt="Avatar" class="icon">
+            </div> -->
+
+            <div id="map"></div>
+
+            <div class="sos-button" id="sos-btn" onclick="requestHelp()">
+                <img src="Icon/Hand.png" alt="Avatar" class="icon">
+            </div>
+
+            <div id="incoming-modal" class="request-card hidden">
+                <div class="profile-avatar">
+                    <img src="Icon/new-profile.png" alt="Avatar" class="icon">
+                </div>
+                <h2 id="incoming-title"><span id="incoming-username">User</span></h2>
+                <div class="modal-btn-group">
+                    <button class="btn-modal btn-reject" onclick="closeModal()">Cancel</button>
+                    <button class="btn-modal btn-accept" onclick="openChatFromModal()">Open chat</button>
+                </div>
+            </div>
+
+            <div id="request-panel" class="bottom-panel hidden">
+                <div class="panel-title">Requesting for help...</div>
+                <button class="btn-action btn-cancel" onclick="cancelRequest()">Cancel</button>
+            </div>
+
+            <div id="location-panel" class="bottom-panel hidden">
+                <div class="location-header">
+                    <div class="panel-title no-margin">Showing Location</div>
+                    <button class="btn-action btn-done" onclick="resetHome()">Done</button>
+                </div>
+            </div>
+        </div>
+
+        <nav class="bottom-nav">
+            <div class="nav-item" onclick="resetHome()">
+                <img src="Icon/Home.png" alt="Home" class="icon">
+            </div>
+
+            <div class="nav-others" onclick="showMainView('profile')">
+                <img src="Icon/Profile-black.png" alt="Profile" class="icon">
+            </div>
+
+            <div class="nav-others" onclick="showMainView('menu')">
+                <img src="Icon/menu.png" style="width: 18px;">
+            </div>
+        </nav>
+    </section>
+    <section id="app-menu" class="main-view hidden">
+        <header class="header-container">
+            <h1 class="logo">Care<span>Click</span></h1>
+            <div class="title-bar">
+                <div class="back-btn-inline" id="back-btn" onclick="showMenu()">←</div>
+                <h2 id="header-title">Menu</h2>
+            </div>
+        </header>
+
+        <main class="menu-content" id="menu-view">
+            <div class="menu-item" onclick="showAbout()">
+                <div class="icon-box bg-cyan">
+                      <img src="Icon/About.png" alt="About" />
+                </div>
+                <div class="item-label">About CareClick</div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="menu-item" onclick="window.location.href='mailto:careclickwup@gmail.com'">
+                <div class="icon-box bg-pink">
+                     <img src="Icon/Support.png" alt="Support" />
+                </div>
+                <div class="item-label">Contact Support</div>
+                <div class="chevron">›</div>
+            </div>
+            <div class="menu-item" style="margin-top: 10px;">
+                <div class="icon-box bg-red">
+                    <img src="Icon/Log out.png" alt="Sign Out" />
+                </div>
+                <div class="item-label" style="color: #e53e3e;">Sign Out</div>
+                <div class="chevron" style="color: #e53e3e;">›</div>
+            </div>
+        </main>
+
+        <main id="notification-view">
+            <div class="page-title-large">Manage Notifications</div>
+            <div class="page-subtitle">Customize how you receive updates and alerts</div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Push.png" alt="Terms" />
+                </div>
+                <div class="item-info">
+                    <span class="main-text">Push Notifications</span>
+                    <span class="sub-text">Receive instant updates on your device</span>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <div class="section-label">Advanced Settings</div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Location 3.png" alt="Terms" />
+                </div>
+                <div class="item-info">
+                    <span class="main-text">Location-Based Alerts</span>
+                    <span class="sub-text">Notifications based on your location</span>
+                </div>
+                <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Mail 4.png" alt="Terms" />
+                </div>
+                <div class="item-info">
+                    <span class="main-text">Email Notifications</span>
+                    <span class="sub-text">Receive updates via email</span>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                   <img src="Icon/Privacy 2.png" alt="Terms" style="width: 20px; height: 20px;">
+                </div>
+                <div class="item-info">
+                    <span class="main-text">Privacy & Security</span>
+                    <span class="sub-text">Security alerts and privacy updates</span>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <button class="save-btn">Save Preferences</button>
+        </main>
+
+        <main id="privacy-view">
+            <div class="section-label">Account Privacy</div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                     <img src="Icon/Data.png" alt="Terms" />
+                </div>
+                <div class="item-info">
+                    <span class="main-text">Data Sharing</span>
+                    <span class="sub-text">Control how your data is shared with third parties</span>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Location 3.png" alt="Terms" />
+                </div>
+                <div class="item-info">
+                    <span class="main-text">Location Access</span>
+                    <span class="sub-text">Manage which apps can access your location</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Security 2.png" alt="Terms" />
+                </div>
+                <div class="item-info">
+                    <span class="main-text">App Permissions</span>
+                    <span class="sub-text">Review and modify app access permissions</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="section-label">Device Permissions</div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                     <img src="Icon/Activity.png" alt="Terms" />
+                </div>  
+                <div class="item-info">
+                    <span class="main-text">Activity Tracking</span>
+                    <span class="sub-text">Allow apps to track your activity across devices</span>
+                </div>
+                <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                     <img src="Icon/Block.png" alt="Terms" />
+                </div>  
+                <div class="item-info">
+                    <span class="main-text">Blocked Contacts</span>
+                    <span class="sub-text">Manage your list of blocked users and contacts</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Ad.png" alt="Terms" />
+                </div>  
+                <div class="item-info">
+                    <span class="main-text">Ad Personalization</span>
+                    <span class="sub-text">Control how ads are personalized for you</span>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <div class="section-label">Security Controls</div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Lock 3.png" alt="Terms" />
+                </div>  
+                <div class="item-info">
+                    <span class="main-text">Two-Factor Authentication</span>
+                    <span class="sub-text">Add an extra layer of security to your account</span>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                     <img src="Icon/Key.png" alt="Terms" />
+                </div>  
+                <div class="item-info">
+                    <span class="main-text">Password & Security</span>
+                    <span class="sub-text">Update your password and security questions</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Privacy.png" alt="Terms" />
+                </div>  
+                <div class="item-info">
+                    <span class="main-text">Privacy Policy</span>
+                    <span class="sub-text">Read our complete privacy policy and terms</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <button class="save-btn">Save Preferences</button>
+        </main>
+
+        <main id="security-view">
+            <div class="security-card">
+                <div class="security-status-header">
+                    <div class="icon-box bg-light-green" style="margin: 0;">
+                        <img src="Icon/Security 2.png" alt="Terms" />
+                </div> 
+                    <div class="status-content">
+                        <h3>Account Protected</h3>
+                        <p>Your security score is excellent. No recent threats detected.</p>
+                    </div>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill"></div>
+                </div>
+                <div class="progress-labels">
+                    <span class="label-left">Security Level</span>
+                    <span class="label-right">92% Safe</span>
+                </div>
+            </div>
+
+            <div class="section-label">Security Controls</div>
+            <div class="setting-item">
+                <div class="icon-box bg-grey">
+                    <img src="Icon/Key 2.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Change Password</span>
+                    <span class="sub-text">Last updated 3 months ago</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-grey">
+                    <img src="Icon/Biometric.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Biometric Login</span>
+                    <span class="sub-text">FaceID or Fingerprint</span>
+                </div>
+                <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+            </div>
+
+            <div class="section-label">Activity & Devices</div>
+            <div class="setting-item">
+                <div class="icon-box bg-grey">
+                    <img src="Icon/Device.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Trusted Devices</span>
+                    <span class="sub-text">Manage active sessions</span>
+                </div>
+                <span class="badge-active">2 Active</span>
+                <div class="chevron" style="margin-left: 10px;">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-red" style="background: #e9aaaa;">
+                     <img src="Icon/Alert.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Security Alerts</span>
+                    <span class="sub-text">Recent login attempts</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-grey">
+                     <img src="Icon/Recovery.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Recovery Options</span>
+                    <span class="sub-text">Email and phone backup</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <button class="review-btn">Review Activity Log</button>
+        </main>
+        <main id="language-view">
+            <div class="section-label">Select Your Language</div>
+            <p class="page-subtitle" style="margin-left: 5px;">Choose your preferred language for the app</p>
+
+            <div class="setting-item language-item selected">
+                <div class="icon-box bg-light-green">
+                     <img src="Icon/Language 2.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">English</span>
+                    <span class="sub-text">Hello, Welcome</span>
+                </div>
+                <div class="radio-circle"></div>
+            </div>
+
+            <div class="setting-item language-item">
+                <div class="icon-box bg-blue">
+                <img src="Icon/Language 3.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">EspaÃ±ol</span>
+                    <span class="sub-text">Hola, Bienvenido</span>
+                </div>
+                <div class="radio-circle"></div>
+            </div>
+
+            <div class="setting-item language-item">
+                <div class="icon-box bg-purple">
+                     <img src="Icon/Language 4.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">FranÃ§ais</span>
+                    <span class="sub-text">Bonjour, Bienvenue</span>
+                </div>
+                <div class="radio-circle"></div>
+            </div>
+
+            <div class="setting-item language-item">
+                <div class="icon-box bg-yellow">
+                    <img src="Icon/Language 5.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Deutsch</span>
+                    <span class="sub-text">Hallo, Willkommen</span>
+                </div>
+                <div class="radio-circle"></div>
+            </div>
+
+            <div class="setting-item language-item">
+                <div class="icon-box bg-pink">
+                     <img src="Icon/Language 6.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">í•œêµ­ì–´</span>
+                    <span class="sub-text">ì•ˆë…•í•˜ì„¸ìš”, í™˜ì˜í•©ë‹ˆë‹¤</span>
+                </div>
+                <div class="radio-circle"></div>
+            </div>
+
+            <div class="setting-item language-item">
+                <div class="icon-box bg-cyan">
+                     <img src="Icon/Language 7.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">æ—¥æœ¬èªž</span>
+                    <span class="sub-text">ã“ã‚“ã«ã¡ã¯, ã‚ˆã†ã“ã</span>
+                </div>
+                <div class="radio-circle"></div>
+            </div>
+
+            <div class="setting-item language-item">
+                <div class="icon-box bg-light-green">AB</div>
+                <div class="item-info">
+                    <span class="main-text">Arabic</span>
+                    <span class="sub-text">Ù…Ø±Ø­Ø¨Ø§Ù‹ Ø¨ÙƒÙ…</span>
+                </div>
+                <div class="radio-circle"></div>
+            </div>
+
+            <button class="apply-btn">Apply Changes</button>
+        </main>
+
+        <main id="help-view">
+            <div class="help-card-container">
+                <div class="help-search-section">
+                    <h2 style="font-size: 1.4rem; font-weight: 800; margin: 0;">Help</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">How can we help you?</p>
+                    <div class="search-input-wrapper">
+                        <span class="search-icon-fixed"></span>
+                        <input type="text" class="help-search-bar" placeholder="Search for topics or questions">
+                    </div>
+                </div>
+
+                <div class="section-label">Help Topics</div>
+                <div class="menu-item">
+                    <div class="icon-box bg-light-green">
+                         <img src="Icon/Rocket.png" alt="Terms" />
+                </div> 
+                    <div class="item-label">Getting Started</div>
+                    <div class="chevron">›</div>
+                </div>
+                <div class="menu-item">
+                    <div class="icon-box bg-blue">
+                        <img src="Icon/Star.png" alt="Terms" />
+                </div> 
+                    <div class="item-label">Using CareClick Features</div>
+                    <div class="chevron">›</div>
+                </div>
+                <div class="menu-item">
+                    <div class="icon-box bg-purple">
+                        <img src="Icon/Profile 4.png" alt="Terms" />
+                </div> 
+                    <div class="item-label">Account & Profile</div>
+                    <div class="chevron">›</div>
+                </div>
+                <div class="menu-item">
+                    <div class="icon-box bg-orange">
+                        <img src="Icon/Security 5.png" alt="Terms" />
+                </div> 
+                    <div class="item-label">Privacy & Security</div>
+                    <div class="chevron">›</div>
+                </div>
+                <div class="menu-item">
+                    <div class="icon-box bg-red">
+                         <img src="Icon/Troubleshooting.png" alt="Terms" />
+                </div> 
+                    <div class="item-label">Troubleshooting</div>
+                    <div class="chevron">›</div>
+                </div>
+                <div class="menu-item">
+                    <div class="icon-box bg-light-green">
+                         <img src="Icon/Support 2.png" alt="Terms" />
+                </div> 
+                    <div class="item-label">Contact Support</div>
+                    <div class="chevron">›</div>
+                </div>
+
+                <div class="support-card">
+                    <h3 style="margin: 0; font-size: 1.1rem;">Need more help?</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 5px 0 15px 0;">Our support team is here to assist you</p>
+                    <button class="support-btn-outline">
+        <img src="Icon/Mail 4.png" alt="Email" class="button-icon" />
+        Send Email
+    </button>
+                   
+                    <button class="support-btn-outline">
+        <img src="Icon/Call 2.png" alt="Phone" class="phone-icon" />
+        Call Hotline
+    </button>
+                </div>
+
+                <div class="section-label">Frequently Asked Questions</div>
+                <div class="faq-item">How do I reset my password? <span>âŒµ</span></div>
+                <div class="faq-item">How do I update my information? <span>âŒµ</span></div>
+                <div class="faq-item">Why can't I access my account? <span>âŒµ</span></div>
+            </div>
+        </main>
+
+        <main id="about-view">
+            <div class="about-branding">
+                <div class="about-logo-square">
+                    <span>❤</span>
+                </div>
+                <h2 class="about-header-text">CareClick</h2>
+                <p class="about-desc-text">
+                    Connecting you with compassionate care at your fingertips. CareClick is designed to make healthcare accessible, intuitive, and centered around your wellbeing.
+                </p>
+            </div>
+
+            <div class="section-label">App Information</div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Version.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Version</span>
+                    <span class="sub-text">1.0.0</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Developer.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Developer Info</span>
+                    <span class="sub-text">Meet the team</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Mission.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Our Mission</span>
+                    <span class="sub-text">What drives us</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Hand 2.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Acknowledgments</span>
+                    <span class="sub-text">Special thanks</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="footer-copyright">
+                Â© 2026 CareClick. All rights reserved.
+            </div>
+        </main>
+
+        <main id="support-view">
+            <div class="support-hero">
+                <div class="icon-box bg-white">
+                    <img src="Icon/Quick.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Quick Assistance</span>
+                    <span class="sub-text">Get instant answers to common questions and troubleshooting tips</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="section-label">Support Options</div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                    <img src="Icon/Message.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Live Chat</span>
+                    <span class="sub-text">Connect with an agent instantly</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                     <img src="Icon/Mail 4.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Email Support</span>
+                    <span class="sub-text">Expect a reply within 24 hrs</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                     <img src="Icon/Call 2.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Call Us</span>
+                    <span class="sub-text">Speak directly with our team</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                     <img src="Icon/Articles.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Help Articles</span>
+                    <span class="sub-text">Browse our knowledge base</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="setting-item">
+                <div class="icon-box bg-light-green">
+                     <img src="Icon/Report.png" alt="Terms" />
+                </div> 
+                <div class="item-info">
+                    <span class="main-text">Report an Issue</span>
+                    <span class="sub-text">Let us know about problems</span>
+                </div>
+                <div class="chevron">›</div>
+            </div>
+
+            <div class="section-label">Send a Message</div>
+            <div class="message-card">
+                <textarea placeholder="Describe your issue or question..."></textarea>
+                <div class="message-footer">
+                    <button class="attachment-btn">
+        <img src="Icon/File (7).png" alt="Attachment" class="attachment-icon" />
+    </button>
+
+                    <button class="attachment-btn">
+        <img src="Icon/Image.png" alt="Image" class="attachment-icon" />
+    </button>
+                </div>
+            </div>
+
+            <button class="save-btn" style="margin-top: 20px;">
+                <span></span> Send
+            </button>
+        </main>
+
+        <nav class="bottom-navigation" id="bottom-nav">
+            <div class="nav-icon home-btn" onclick="showMainView('home')" role="button" tabindex="0">
+                <img src="Icon/Home-black.png" alt="Home" style="width: 24px; height: 24px;">
+                </div>
+            <div class="nav-icon">
+                <img src="Icon/Profile-black.png" alt="Profile"style="width: 45px; height: 45px;" onclick="showMainView('profile')" cursor="pointer">
+                </div>
+            <div class="nav-icon active">
+                <img src="Icon/menu.png">
+            </div>
+        </nav>
+    </section>
+    <section id="app-profile" class="main-view hidden">
+        <div class="brand-header" id="brand-header">
+            <h1 class="logo">Care<span>Click</span></h1>
+        </div>
+
+        <div id="view-profile">
+            <!-- <header>
+                <div style="width: 30px;"></div> 
+                <span class="page-title">Profile</span>
+                <img src="Icon/Pencil.png" alt="Edit" style="width: 20px; height: 20px;">
+                </button>
+            </header> -->
+
+            <main class="content-container profile-center">
+                <div class="avatar-wrapper">
+                    <img src="Icon/new-profile.png" alt="Profile Avatar" style="width: 100px; height: 100px;">
+                </div>
+                <div class="profile-details">
+                    <h2 id="profile-username" style="margin: 10px 0 5px 0; font-size: 1.6rem;">username</h2>
+                    <p id="profile-email" class="profile-meta">@email</p>
+                </div>
+
+                <div class="info-card" onclick="openMessages()">
+                    <div class="icon-box green-bg">
+                    <img src="Icon/Message.png" alt="Messages" style="width: 24px; height: 24px;">
+                    </div>
+                    <p class="info-value">Messages</p>
+                    <div class="chevron" style="margin-left: auto;">›</div>
+                </div>
+            </main>
+        </div>
+
+        <div id="view-messenger" class="hidden">
+            <header>
+                <button class="icon-btn" onclick="openProfile()">
+                    <img src="Icon/back.png">
+                </button>
+                <div class="header-actions">
+                    <button class="icon-btn" id="search-toggle-btn" onclick="toggleUserSearch()">
+                        <img src="Icon/Search.png" alt="Search" style="width: 20px; height: 20px;">
+                    </button>
+                    <button class="icon-btn" id="create-group-btn" type="button" aria-label="Create group chat">
+                        <img src="Icon/add-group.png" alt="">
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-container">
+                <h2 class="msg-section-title">Messages</h2>
+                <div class="search-row hidden" id="user-search-row">
+                    <input type="text" id="user-search-input" class="search-input" placeholder="Search users...">
+                </div>
+                <div id="messages-empty" class="msg-empty hidden">No conversations yet.</div>
+                <div id="messages-list"></div>
+                <div id="users-empty" class="msg-empty hidden">No other users found.</div>
+                <div id="users-list"></div>
+            </main>
+        </div>
+
+        <div class="modal-backdrop hidden" id="group-modal">
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="group-modal-title">
+                <div class="modal-header">
+                    <h3 id="group-modal-title">Create Group Chat</h3>
+                    <button class="icon-btn" id="group-cancel-btn" type="button">×</button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="group-name-input" class="search-input" placeholder="Group name" aria-describedby="group-name-error">
+                    <div id="group-name-error" class="field-error hidden">Field is required</div>
+                    <div class="group-subtitle">Select at least 2 users</div>
+                    <input type="text" id="group-user-search" class="search-input" placeholder="Search users...">
+                    <div class="group-list" id="group-user-list"></div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-preview ghost" id="group-cancel-btn-footer" type="button">Cancel</button>
+                    <button class="btn-preview" id="group-create-btn" type="button">Create</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-backdrop hidden" id="group-info-modal">
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="group-info-title">
+                <div class="modal-header">
+                    <h3 id="group-info-title">Group Details</h3>
+                    <button class="icon-btn" id="group-info-close-btn" type="button">×</button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="group-info-name-input" class="search-input" placeholder="Group name" aria-describedby="group-info-name-error">
+                    <div id="group-info-name-error" class="field-error hidden">Field is required</div>
+                    <div class="group-subtitle">Members</div>
+                    <div class="group-list" id="group-info-members"></div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-preview ghost" id="group-info-cancel-btn" type="button">Close</button>
+                    <button class="btn-preview ghost" id="group-info-add-btn" type="button">Add</button>
+                    <button class="btn-preview" id="group-info-save-btn" type="button">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-backdrop hidden" id="group-add-modal">
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="group-add-title">
+                <div class="modal-header">
+                    <h3 id="group-add-title">Add Members</h3>
+                    <button class="icon-btn" id="group-add-close-btn" type="button">×</button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="group-add-search" class="search-input" placeholder="Search users...">
+                    <div class="group-list" id="group-add-list"></div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-preview ghost" id="group-add-cancel-btn" type="button">Cancel</button>
+                    <button class="btn-preview" id="group-add-confirm-btn" type="button">Add Selected</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-chat" class="hidden">
+            <header>
+                <button class="icon-btn" onclick="openMessages()">
+                    <img src="Icon/back.png">
+                </button>
+                <div style="text-align: center; flex: 1;">
+                    <div class="page-title chat-title-btn" id="chat-title" role="button" tabindex="0">User Name</div>
+                    <div class="active-status" id="chat-status">Active now</div>
+                </div>
+            </header>
+            <main class="content-container chat-container" id="chat-messages"></main>
+
+            <footer class="chat-footer">
+                <button class="icon-btn attach-btn" id="chat-image-btn" type="button">
+                    <img src="Icon/Image.png">
+                </button>
+                <textarea class="chat-input" id="chat-input" placeholder="Type a message..." rows="1"></textarea>
+                <button class="send-icon-btn" id="chat-send-btn" style="cursor: pointer;">
+                    <img src="Icon/send.png">
+                </button>
+            </footer>
+            <input type="file" id="chat-image-input" accept="image/jpeg,image/png" class="hidden" />
+            <div id="chat-image-preview" class="image-preview hidden">
+                <button class="preview-cancel" id="chat-image-cancel-btn" type="button" aria-label="Cancel image">
+                    <img src="Icon/cancel.png" alt="">
+                </button>
+                <img id="chat-image-preview-img" alt="Image preview">
+            </div>
+        </div>
+
+        <!-- <div id="view-call" class="hidden">
+            <div class="call-page-branding">
+                <h1 class="logo">Care<span>Click</span></h1>
+            </div>
+
+            <div class="call-header">
+                <div class="call-header-btn" onclick="endCall()">←</div>
+                <div class="page-title" id="call-name">Peter Parker</div>
+                <div class="call-header-btn transparent">â‹®</div>
+            </div>
+
+            <div class="call-avatar-container">
+                <div class="call-avatar-glow">
+                   <img src="images (7).jpg" class="call-avatar-img" alt="User">
+                </div>
+                <div class="call-status-info">
+                    <div class="call-timer">
+                        <div class="timer-dot"></div>
+                        <span>00:24</span>
+                    </div>
+                    <div class="call-status-label">Connected</div>
+                   <img src="Signal.png" alt="Signal" style="width: 16px; height: 16px;">
+                        <span>Excellent connection</span>
+                </div>
+            </div>
+
+            <div class="call-action-card">
+                <div class="call-buttons-row">
+                    <div class="call-btn-item">
+                        <div class="call-icon-circle">
+                        <img src="Mic.png" alt="Mute" style="width: 24px; height: 24px;">
+                        </div>
+                        <span>Mute</span>
+                    </div>
+                    <div class="call-btn-item">
+                        <div class="call-icon-circle active">
+                            <img src="Speaker.png" alt="Speaker" style="width: 24px; height: 24px;">
+                        </div>
+                        <span style="color: var(--primary-green)">Speaker</span>
+                    </div>
+                    <div class="call-btn-item">
+                        <div class="call-icon-circle">
+                        <img src="Message 2.png" alt="Message" style="width: 24px; height: 24px;">
+                        </div>
+                        <span>Message</span>
+                    </div>
+                </div>
+                <button class="btn-end-call" onclick="endCall()">
+                    <span class="phone-icon-rotated">ðŸ“ž</span> End Call
+                </button>
+            </div>
+        </div> -->
+
+        <nav class="bottom-nav" id="main-nav">
+            <div class="nav-item green-active" onclick="showMainView('home')">
+                <img src="Icon/Home-black.png" alt="Home" style="width: 24px; height: 24px;">
+            </div>
+            <div class="nav-item active" onclick="openProfile()">
+                <img src="Icon/Profile.png" alt="Profile" style="width: 45px; height: 45px;">
+            </div>
+            <div class="nav-item" onclick="showMainView('menu')" curssor="pointer">
+                <img src="Icon/menu.png">
+            </div>
+        </nav>
+    </section>
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
+    <script src="shared.js"></script>
+    <script src="Profile.js"></script>
+    <script src="Main.js"></script>
+</body>
+</html>

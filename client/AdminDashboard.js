@@ -34,7 +34,7 @@ async function ensureAdminSession() {
     try {
         const data = await apiRequest("/api/users/me");
         if (data?.user?.role !== "admin") {
-            window.location.href = "Home.html";
+            window.location.href = "Main.html";
             return false;
         }
         return true;
@@ -304,7 +304,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (homeBtn) {
         homeBtn.addEventListener("click", () => {
-            window.location.href = "Home.html";
+            window.location.href = "Main.html";
         });
     }
     const setFilter = (filter) => {

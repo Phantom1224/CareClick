@@ -76,11 +76,21 @@
         <main class="content-container chat-container" id="chat-messages"></main>
 
         <footer class="chat-footer">
+            <button class="icon-btn attach-btn" id="chat-image-btn" type="button">
+                <img src="Icon/Image.png">
+            </button>
             <textarea class="chat-input" id="chat-input" placeholder="Type a message..." rows="1"></textarea>
             <button class="send-icon-btn" id="chat-send-btn" style="cursor: pointer;">
                 <img src="Icon/send.png">
             </button>
         </footer>
+        <input type="file" id="chat-image-input" accept="image/jpeg,image/png" class="hidden" />
+        <div id="chat-image-preview" class="image-preview hidden">
+            <button class="preview-cancel" id="chat-image-cancel-btn" type="button" aria-label="Cancel image">
+                <img src="Icon/cancel.png" alt="">
+            </button>
+            <img id="chat-image-preview-img" alt="Image preview">
+        </div>
     </div>
 
     <div id="view-call" class="hidden">

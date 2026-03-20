@@ -24,6 +24,7 @@ let allUsers = [];
 let searchTerm = "";
 let activeMessageIds = new Set();
 let sendInFlight = false;
+let pendingImageFile = null;
 const seenNotifyMessageIds = new Set();
 const notificationPoller = createNotificationPoller({
     pollMs: NOTIFY_POLL_MS,
@@ -379,7 +380,17 @@ function renderMessageBubble(message, { status, tempId } = {}) {
 
     const bubble = document.createElement("div");
     bubble.className = `chat-bubble ${isSent ? "bubble-sent" : "bubble-received"}`;
-    bubble.textContent = message.body;
+    if (message.messageType === "image" && message.image?.fileId) {
+        const img = document.createElement("img");
+        img.src = `/api/files/chat-image/${message.image.fileId}`;
+        img.alt = message.image.originalName || "Chat image";
+        img.style.maxWidth = "100%";
+        img.style.borderRadius = "12px";
+        img.style.display = "block";
+        bubble.appendChild(img);
+    } else {
+        bubble.textContent = message.body;
+    }
     if (message._id) {
         bubble.dataset.messageId = String(message._id);
     }
@@ -511,6 +522,10 @@ async function sendMessage() {
     const sendBtn = document.getElementById("chat-send-btn");
     if (!input || !activeConversationId) return;
     const body = input.value.trim();
+    if (!body && pendingImageFile) {
+        sendImageMessage();
+        return;
+    }
     if (!body) return;
     if (sendInFlight) return;
     let tempId = null;
@@ -582,6 +597,44 @@ async function sendMessage() {
         }
     } finally {
         sendInFlight = false;
+        if (sendBtn) sendBtn.disabled = false;
+    }
+}
+
+async function sendImageMessage() {
+    const sendBtn = document.getElementById("chat-send-btn");
+    const preview = document.getElementById("chat-image-preview");
+    if (!pendingImageFile || !activeConversationId) return;
+
+    try {
+        if (sendBtn) sendBtn.disabled = true;
+        const formData = new FormData();
+        formData.append("image", pendingImageFile);
+
+        const response = await fetch(
+            `/api/messages/conversations/${activeConversationId}/images`,
+            {
+                method: "POST",
+                credentials: "include",
+                body: formData,
+            }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.message || "Unable to send image");
+        }
+
+        if (data?.message) {
+            renderMessageBubble(data.message);
+            lastMessageCursor = data.message.createdAt;
+            scrollChatToBottom();
+        }
+
+        pendingImageFile = null;
+        if (preview) preview.classList.add("hidden");
+    } catch (error) {
+        console.error("Failed to send image:", error.message);
+    } finally {
         if (sendBtn) sendBtn.disabled = false;
     }
 }
@@ -691,6 +744,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const sendBtn = document.getElementById("chat-send-btn");
     const input = document.getElementById("chat-input");
     const userSearchInput = document.getElementById("user-search-input");
+    const imageBtn = document.getElementById("chat-image-btn");
+    const imageInput = document.getElementById("chat-image-input");
+    const imagePreview = document.getElementById("chat-image-preview");
+    const imagePreviewImg = document.getElementById("chat-image-preview-img");
+    const imageCancelBtn = document.getElementById("chat-image-cancel-btn");
 
     if (sendBtn) {
         sendBtn.addEventListener("click", sendMessage);
@@ -705,6 +763,35 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         input.addEventListener("input", () => autoResizeChatInput(input));
         autoResizeChatInput(input);
+    }
+
+    if (imageBtn && imageInput) {
+        imageBtn.addEventListener("click", () => imageInput.click());
+        imageInput.addEventListener("change", () => {
+            const file = imageInput.files?.[0] || null;
+            if (!file) return;
+            if (!["image/jpeg", "image/png"].includes(file.type)) {
+                alert("Only JPEG or PNG images are allowed.");
+                imageInput.value = "";
+                return;
+            }
+            pendingImageFile = file;
+            if (imagePreviewImg) {
+                imagePreviewImg.src = URL.createObjectURL(file);
+            }
+            if (imagePreview) {
+                imagePreview.classList.remove("hidden");
+            }
+        });
+    }
+
+    if (imageCancelBtn && imagePreview) {
+        imageCancelBtn.addEventListener("click", () => {
+            pendingImageFile = null;
+            if (imagePreviewImg) imagePreviewImg.src = "";
+            imagePreview.classList.add("hidden");
+            if (imageInput) imageInput.value = "";
+        });
     }
 
     if (userSearchInput) {

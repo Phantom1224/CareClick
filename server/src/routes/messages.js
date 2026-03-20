@@ -7,21 +7,37 @@ const { sendError, sendOk, sendCreated } = require("../utils/http");
 const { isValidObjectId } = require("../utils/validation");
 const { toDate } = require("../utils/date");
 const { isOnline } = require("../utils/online");
+const { filterMessage } = require("../utils/contentFilter");
+const multer = require("multer");
+const mongoose = require("mongoose");
 
 const router = express.Router();
 const ONLINE_WINDOW_MS = 15000;
 const MAX_LIMIT = 200;
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: IMAGE_MAX_BYTES },
+  fileFilter: (_req, file, cb) => {
+    const isValid = ["image/jpeg", "image/png"].includes(file.mimetype);
+    if (!isValid) {
+      return cb(new Error("Only JPEG and PNG images are allowed"));
+    }
+    return cb(null, true);
+  },
+});
 
 function buildConversationSummary(conversation, userId, now) {
   const other = conversation.participants.find(
     (participant) => participant._id.toString() !== userId
   );
 
-    return {
-      _id: conversation._id,
-      lastMessageText: conversation.lastMessageText || "",
-      lastMessageAt: conversation.lastMessageAt || conversation.updatedAt,
-      lastMessageSenderId: conversation.lastMessageSender || null,
+  return {
+    _id: conversation._id,
+    lastMessageText: conversation.lastMessageText || "",
+    lastMessageAt: conversation.lastMessageAt || conversation.updatedAt,
+    lastMessageSenderId: conversation.lastMessageSender || null,
       otherUser: other
         ? {
             _id: other._id,
@@ -144,6 +160,8 @@ router.get("/conversations/:conversationId/messages", requireAuth, async (req, r
     const payload = messages.map((message) => ({
       _id: message._id,
       body: message.body,
+      messageType: message.messageType || "text",
+      image: message.image || null,
       senderId: message.sender,
       createdAt: message.createdAt,
     }));
@@ -190,6 +208,8 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const payload = messages.map((message) => ({
       _id: message._id,
       body: message.body,
+      messageType: message.messageType || "text",
+      image: message.image || null,
       senderId: message.sender?._id || message.sender,
       senderName: message.sender?.userName || "User",
       createdAt: message.createdAt,
@@ -217,6 +237,11 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
       return sendError(res, 400, "Message body is required");
     }
 
+    const filteredBody = filterMessage(body).trim();
+    if (!filteredBody) {
+      return sendError(res, 400, "Message content not allowed");
+    }
+
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: userId,
@@ -229,10 +254,10 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
     const message = await Message.create({
       conversation: conversationId,
       sender: userId,
-      body,
+      body: filteredBody,
     });
 
-    conversation.lastMessageText = body;
+    conversation.lastMessageText = filteredBody;
     conversation.lastMessageAt = message.createdAt;
     conversation.lastMessageSender = userId;
     await conversation.save();
@@ -241,12 +266,104 @@ router.post("/conversations/:conversationId/messages", requireAuth, async (req, 
       message: {
         _id: message._id,
         body: message.body,
+        messageType: message.messageType || "text",
+        image: message.image || null,
         senderId: message.sender,
         createdAt: message.createdAt,
       },
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to send message");
+  }
+});
+
+function getChatImageBucket() {
+  if (!mongoose.connection?.db) {
+    throw new Error("Database not connected");
+  }
+  return new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+    bucketName: "chatImages",
+  });
+}
+
+function uploadChatImage(file) {
+  return new Promise((resolve, reject) => {
+    const bucket = getChatImageBucket();
+    const uploadStream = bucket.openUploadStream(file.originalname || "chat-image", {
+      contentType: file.mimetype,
+      metadata: {
+        originalName: file.originalname,
+        uploadedAt: new Date(),
+      },
+    });
+    uploadStream.on("error", reject);
+    uploadStream.on("finish", () => resolve(uploadStream.id));
+    uploadStream.end(file.buffer);
+  });
+}
+
+const chatImageUpload = (req, res, next) => {
+  imageUpload.single("image")(req, res, (error) => {
+    if (error) {
+      return sendError(res, 400, error.message || "Unable to upload image");
+    }
+    return next();
+  });
+};
+
+router.post("/conversations/:conversationId/images", requireAuth, chatImageUpload, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const { conversationId } = req.params;
+
+    if (!isValidObjectId(conversationId)) {
+      return sendError(res, 400, "Invalid conversation id");
+    }
+
+    if (!req.file) {
+      return sendError(res, 400, "Image is required");
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      return sendError(res, 404, "Conversation not found");
+    }
+
+    const fileId = await uploadChatImage(req.file);
+
+    const message = await Message.create({
+      conversation: conversationId,
+      sender: userId,
+      messageType: "image",
+      body: "[Image]",
+      image: {
+        fileId,
+        mime: req.file.mimetype,
+        originalName: req.file.originalname,
+      },
+    });
+
+    conversation.lastMessageText = "[Image]";
+    conversation.lastMessageAt = message.createdAt;
+    conversation.lastMessageSender = userId;
+    await conversation.save();
+
+    return sendCreated(res, {
+      message: {
+        _id: message._id,
+        body: message.body,
+        messageType: message.messageType,
+        image: message.image || null,
+        senderId: message.sender,
+        createdAt: message.createdAt,
+      },
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to send image");
   }
 });
 

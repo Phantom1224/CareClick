@@ -370,7 +370,7 @@ function setChatHeader(conversation) {
     }
 }
 
-function renderMessageBubble(message, { status, tempId } = {}) {
+function renderMessageBubble(message, { status, tempId, localImageUrl } = {}) {
     const container = document.getElementById("chat-messages");
     if (!container) return;
 
@@ -380,14 +380,19 @@ function renderMessageBubble(message, { status, tempId } = {}) {
 
     const bubble = document.createElement("div");
     bubble.className = `chat-bubble ${isSent ? "bubble-sent" : "bubble-received"}`;
-    if (message.messageType === "image" && message.image?.fileId) {
+    if (message.messageType === "image" && (message.image?.fileId || localImageUrl)) {
         const img = document.createElement("img");
-        img.src = `/api/files/chat-image/${message.image.fileId}`;
+        img.src = message.image?.fileId
+            ? `/api/files/chat-image/${message.image.fileId}`
+            : localImageUrl;
         img.alt = message.image.originalName || "Chat image";
         img.style.maxWidth = "100%";
         img.style.borderRadius = "12px";
         img.style.display = "block";
         bubble.appendChild(img);
+        if (message.image?.fileId) {
+            bubble.dataset.imageFileId = String(message.image.fileId);
+        }
     } else {
         bubble.textContent = message.body;
     }
@@ -461,13 +466,31 @@ async function loadMessages({ reset } = {}) {
                 if (activeMessageIds.has(message._id)) {
                     return;
                 }
-                if (String(message.senderId) === String(currentUserId)) {
-                    const tempBubble = document.querySelector(
-                        `[data-temp-id][data-body="${CSS.escape(message.body)}"]`
+                if (message.messageType === "image" && message.image?.fileId) {
+                    const existingImage = document.querySelector(
+                        `[data-image-file-id="${message.image.fileId}"]`
                     );
+                    if (existingImage) {
+                        activeMessageIds.add(message._id);
+                        return;
+                    }
+                }
+                if (String(message.senderId) === String(currentUserId)) {
+                    const tempBubble = message.messageType === "image"
+                        ? document.querySelector("[data-temp-id][data-body=\"[Image]\"]")
+                        : document.querySelector(
+                              `[data-temp-id][data-body="${CSS.escape(message.body)}"]`
+                          );
                     if (tempBubble) {
                         tempBubble.dataset.messageId = String(message._id);
                         tempBubble.removeAttribute("data-temp-id");
+                        if (message.messageType === "image" && message.image?.fileId) {
+                            tempBubble.dataset.imageFileId = String(message.image.fileId);
+                            const img = tempBubble.querySelector("img");
+                            if (img) {
+                                img.src = `/api/files/chat-image/${message.image.fileId}`;
+                            }
+                        }
                         activeMessageIds.add(message._id);
                         const wrapper = tempBubble.closest(".chat-message");
                         if (wrapper) {
@@ -605,11 +628,30 @@ async function sendImageMessage() {
     const sendBtn = document.getElementById("chat-send-btn");
     const preview = document.getElementById("chat-image-preview");
     if (!pendingImageFile || !activeConversationId) return;
+    let tempId = null;
 
     try {
         if (sendBtn) sendBtn.disabled = true;
         const formData = new FormData();
         formData.append("image", pendingImageFile);
+
+        tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const localUrl = URL.createObjectURL(pendingImageFile);
+        renderMessageBubble(
+            {
+                _id: null,
+                body: "[Image]",
+                senderId: currentUserId,
+                createdAt: new Date().toISOString(),
+                messageType: "image",
+                image: { originalName: pendingImageFile.name },
+            },
+            { status: "Sending", tempId, localImageUrl: localUrl }
+        );
+        scrollChatToBottom();
+
+        pendingImageFile = null;
+        if (preview) preview.classList.add("hidden");
 
         const response = await fetch(
             `/api/messages/conversations/${activeConversationId}/images`,
@@ -625,15 +667,52 @@ async function sendImageMessage() {
         }
 
         if (data?.message) {
-            renderMessageBubble(data.message);
+            if (activeMessageIds.has(data.message._id)) {
+                return;
+            }
+            const tempBubble = document.querySelector(`[data-temp-id="${tempId}"]`);
+            if (tempBubble) {
+                tempBubble.dataset.messageId = String(data.message._id);
+                tempBubble.removeAttribute("data-temp-id");
+                activeMessageIds.add(data.message._id);
+                if (data.message.image?.fileId) {
+                    tempBubble.dataset.imageFileId = String(data.message.image.fileId);
+                    const img = tempBubble.querySelector("img");
+                    if (img) {
+                        img.src = `/api/files/chat-image/${data.message.image.fileId}`;
+                    }
+                }
+                const wrapper = tempBubble.closest(".chat-message");
+                if (wrapper) {
+                    const statusEl = wrapper.querySelector(".chat-status");
+                    if (statusEl) {
+                        statusEl.textContent = "Sent";
+                        statusEl.classList.remove("status-sending", "status-failed");
+                        statusEl.classList.add("status-sent");
+                    }
+                }
+            } else {
+                renderMessageBubble(data.message);
+            }
             lastMessageCursor = data.message.createdAt;
             scrollChatToBottom();
         }
 
-        pendingImageFile = null;
-        if (preview) preview.classList.add("hidden");
+        // Preview already hidden on send.
     } catch (error) {
         console.error("Failed to send image:", error.message);
+        const tempBubble = document.querySelector(`[data-temp-id="${tempId}"]`);
+        if (tempBubble) {
+            const wrapper = tempBubble.closest(".chat-message");
+            if (wrapper) {
+                const statusEl = wrapper.querySelector(".chat-status");
+                if (statusEl) {
+                    statusEl.textContent = "Failed";
+                    statusEl.classList.remove("status-sending", "status-sent");
+                    statusEl.classList.add("status-failed");
+                }
+            }
+        }
     } finally {
         if (sendBtn) sendBtn.disabled = false;
     }

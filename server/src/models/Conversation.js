@@ -26,7 +26,7 @@ conversationSchema.pre("validate", function (next) {
     return next(new Error("Conversation must have at least two participants"));
   }
   if (this.isGroup) {
-    this.participantsKey = null;
+    this.participantsKey = undefined;
   } else {
     this.participantsKey = buildParticipantsKey(this.participants);
   }

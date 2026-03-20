@@ -282,13 +282,15 @@ router.post("/signup/verify-code", async (req, res) => {
       emailAddress: pending.emailAddress,
       passwordHash: pending.passwordHash,
       role: "user",
+      isApproved: false,
       validIdImage: pending.validIdImage,
     });
 
     pendingSignups.delete(normalizedEmail);
-    const token = buildToken(user);
-    setAuthCookie(res, token);
-    return sendCreated(res, { token, user: user.toJSON() });
+    return sendCreated(res, {
+      message: "Account created. Awaiting admin approval.",
+      user: user.toJSON(),
+    });
   } catch (error) {
     if (error?.code === 11000) {
       return duplicateErrorResponse(error, res);
@@ -478,6 +480,10 @@ router.post("/login", async (req, res) => {
     const user = await User.findOne({ emailAddress: normalizeEmail(emailAddress) });
     if (!user) {
       return sendError(res, 401, "Invalid email or password");
+    }
+
+    if (!user.isApproved) {
+      return sendError(res, 403, "Account pending approval");
     }
 
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);

@@ -4,6 +4,7 @@ const requireAdmin = require("../middleware/requireAdmin");
 const User = require("../models/User");
 const { sendError, sendOk } = require("../utils/http");
 const { isValidObjectId } = require("../utils/validation");
+const mongoose = require("mongoose");
 
 const router = express.Router();
 
@@ -18,6 +19,7 @@ router.get("/users", requireAuth, requireAdmin, async (_req, res) => {
       userName: user.userName,
       emailAddress: user.emailAddress,
       role: user.role,
+      isApproved: Boolean(user.isApproved),
       validIdImage: user.validIdImage || null,
       createdAt: user.createdAt,
       lastSeenAt: user.lastSeenAt || null,
@@ -63,6 +65,35 @@ router.patch("/users/:userId/role", requireAuth, requireAdmin, async (req, res) 
   }
 });
 
+router.patch("/users/:userId/approve", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!isValidObjectId(userId)) {
+      return sendError(res, 400, "Invalid user id");
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { isApproved: true },
+      { new: true }
+    );
+
+    if (!user) {
+      return sendError(res, 404, "User not found");
+    }
+
+    return sendOk(res, {
+      user: {
+        _id: user._id,
+        isApproved: Boolean(user.isApproved),
+      },
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to approve user");
+  }
+});
+
 router.delete("/users/:userId", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -74,6 +105,20 @@ router.delete("/users/:userId", requireAuth, requireAdmin, async (req, res) => {
     const deleted = await User.findByIdAndDelete(userId);
     if (!deleted) {
       return sendError(res, 404, "User not found");
+    }
+
+    if (deleted.validIdImage?.fileId && mongoose.connection?.db) {
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+        bucketName: "studentIds",
+      });
+      const fileId = deleted.validIdImage.fileId;
+      if (mongoose.Types.ObjectId.isValid(fileId)) {
+        try {
+          await bucket.delete(new mongoose.Types.ObjectId(fileId));
+        } catch (_error) {
+          // Ignore file delete errors to avoid blocking user deletion.
+        }
+      }
     }
 
     return sendOk(res, { message: "User deleted" });

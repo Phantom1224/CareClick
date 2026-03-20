@@ -38,6 +38,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    isApproved: {
+      type: Boolean,
+      default: false,
+    },
     validIdImage: {
       fileId: mongoose.Schema.Types.ObjectId,
       filename: String,

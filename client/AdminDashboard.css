@@ -169,6 +169,20 @@ body {
     color: #16a34a;
 }
 
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: #fef9c3;
+    color: #b45309;
+}
+
+.status-badge.approved {
+    background: #e0f2fe;
+    color: #0ea5e9;
+}
+
 
 .actions {
     display: flex;
@@ -304,4 +318,9 @@ body {
     display: flex;
     gap: 10px;
     justify-content: flex-end;
+}
+
+.btn-primary {
+    background: var(--primary-green);
+    color: #ffffff;
 }

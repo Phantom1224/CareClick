@@ -15,6 +15,7 @@ const deleteCancelBtnFooter = document.getElementById("delete-cancel-btn-footer"
 let allUsers = [];
 let currentSearch = "";
 let pendingDeleteUserId = null;
+let pendingAction = null;
 
 async function apiRequest(path, options = {}) {
     return sharedApiRequest(path, options, {
@@ -100,13 +101,35 @@ function renderUserCard(user) {
     roleBadge.className = `role-badge ${user.role}`;
     roleBadge.textContent = user.role === "admin" ? "Admin" : "User";
 
+    const statusBadge = document.createElement("span");
+    statusBadge.className = `status-badge ${user.isApproved ? "approved" : "pending"}`;
+    statusBadge.textContent = user.isApproved ? "Approved" : "Pending";
+
     main.appendChild(nameEl);
     main.appendChild(emailEl);
     headerRow.appendChild(main);
     headerRow.appendChild(roleBadge);
+    headerRow.appendChild(statusBadge);
 
     const actions = document.createElement("div");
     actions.className = "actions";
+
+    if (!user.isApproved) {
+        const approveBtn = document.createElement("button");
+        approveBtn.className = "btn btn-role";
+        approveBtn.type = "button";
+        approveBtn.textContent = "Approve";
+        approveBtn.addEventListener("click", () => {
+            openConfirmModal({
+                title: "Approve User",
+                message: `Approve ${user.userName || "this user"}?`,
+                confirmText: "Approve",
+                confirmClass: "btn-primary",
+                onConfirm: () => approveUser(user._id),
+            });
+        });
+        actions.appendChild(approveBtn);
+    }
 
     const roleBtn = document.createElement("button");
     roleBtn.className = "btn btn-role";
@@ -115,7 +138,13 @@ function renderUserCard(user) {
         user.role === "admin" ? "Set as User" : "Set as Admin";
     roleBtn.addEventListener("click", () => {
         const nextRole = user.role === "admin" ? "user" : "admin";
-        updateRole(user._id, nextRole);
+        openConfirmModal({
+            title: "Change Role",
+            message: `Set ${user.userName || "this user"} as ${nextRole}?`,
+            confirmText: "Confirm",
+            confirmClass: "btn-primary",
+            onConfirm: () => updateRole(user._id, nextRole),
+        });
     });
 
     const deleteBtn = document.createElement("button");
@@ -123,7 +152,13 @@ function renderUserCard(user) {
     deleteBtn.type = "button";
     deleteBtn.textContent = "Delete User";
     deleteBtn.addEventListener("click", () => {
-        openDeleteModal(user);
+        openConfirmModal({
+            title: "Delete User",
+            message: `Delete ${user.userName || "this user"}? This cannot be undone.`,
+            confirmText: "Delete",
+            confirmClass: "btn-danger",
+            onConfirm: () => deleteUser(user._id),
+        });
     });
 
     actions.appendChild(roleBtn);
@@ -155,11 +190,15 @@ function renderUserCard(user) {
     return card;
 }
 
-function openDeleteModal(user) {
+function openConfirmModal({ title, message, confirmText, confirmClass, onConfirm }) {
     if (!deleteModal || !deleteModalBody || !deleteConfirmBtn) return;
-    pendingDeleteUserId = user?._id || null;
-    const name = user?.userName || "this user";
-    deleteModalBody.textContent = `Delete ${name}? This cannot be undone.`;
+    const titleEl = document.getElementById("delete-modal-title");
+    if (titleEl) titleEl.textContent = title || "Confirm Action";
+    deleteModalBody.textContent = message || "Are you sure?";
+    deleteConfirmBtn.textContent = confirmText || "Confirm";
+    deleteConfirmBtn.classList.remove("btn-danger", "btn-primary", "btn-role");
+    deleteConfirmBtn.classList.add(confirmClass || "btn-danger");
+    pendingAction = typeof onConfirm === "function" ? onConfirm : null;
     deleteModal.classList.remove("hidden");
 }
 
@@ -167,6 +206,7 @@ function closeDeleteModal() {
     if (!deleteModal) return;
     deleteModal.classList.add("hidden");
     pendingDeleteUserId = null;
+    pendingAction = null;
 }
 
 async function loadUsers() {
@@ -193,6 +233,22 @@ async function updateRole(userId, role) {
         renderUsers();
     } catch (error) {
         showToast(error.message || "Unable to update role", true);
+    }
+}
+
+async function approveUser(userId) {
+    try {
+        await apiRequest(`/api/admin/users/${userId}/approve`, {
+            method: "PATCH",
+        });
+        const user = allUsers.find((u) => u._id === userId);
+        if (user) {
+            user.isApproved = true;
+        }
+        showToast("User approved");
+        renderUsers();
+    } catch (error) {
+        showToast(error.message || "Unable to approve user", true);
     }
 }
 
@@ -243,8 +299,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (deleteConfirmBtn) {
         deleteConfirmBtn.addEventListener("click", () => {
-            if (pendingDeleteUserId) {
-                deleteUser(pendingDeleteUserId);
+            if (pendingAction) {
+                pendingAction();
             }
             closeDeleteModal();
         });

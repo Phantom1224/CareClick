@@ -6,6 +6,7 @@ let pendingForgotEmail = "";
 const OTP_RESEND_SECONDS = 60;
 let signupInFlight = false;
 let forgotCodeInFlight = false;
+const VERIFY_REDIRECT_DELAY_MS = 2000;
 
 function toggleView(viewId) {
     clearMessages();
@@ -297,6 +298,7 @@ async function handleVerify() {
         return;
     }
 
+    let verifySucceeded = false;
     try {
         if (verifyBtn) {
             verifyBtn.disabled = true;
@@ -308,13 +310,24 @@ async function handleVerify() {
         });
 
         pendingSignupEmail = "";
-        window.location.href = "Home.html";
+        setMessage(
+            "verify-message",
+            data?.message || "Account created. Awaiting admin approval."
+        );
+        verifySucceeded = true;
+        setTimeout(() => {
+            toggleView("view-login");
+        }, VERIFY_REDIRECT_DELAY_MS);
     } catch (error) {
         setMessage("verify-message", error.message, true);
     } finally {
         if (verifyBtn) {
-            verifyBtn.disabled = false;
-            verifyBtn.textContent = originalLabel || "Verify";
+            if (verifySucceeded) {
+                verifyBtn.disabled = true;
+            } else {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = originalLabel || "Verify";
+            }
         }
     }
 }

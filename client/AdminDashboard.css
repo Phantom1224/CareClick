@@ -111,6 +111,28 @@ body {
     outline: none;
 }
 
+.filter-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.filter-btn {
+    background: #eef2f7;
+    border: none;
+    color: var(--text-dark);
+    font-weight: 700;
+    padding: 8px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.filter-btn.active {
+    background: var(--primary-green);
+    color: #ffffff;
+}
+
 .user-list {
     display: flex;
     flex-direction: column;
@@ -132,12 +154,22 @@ body {
     justify-content: space-between;
     align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 .user-main {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    min-width: 160px;
+    flex: 1;
+}
+
+.badge-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .user-name {

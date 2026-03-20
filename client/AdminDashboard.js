@@ -6,6 +6,9 @@ const emptyState = document.getElementById("users-empty");
 const searchInput = document.getElementById("user-search-input");
 const logoutBtn = document.getElementById("admin-logout-btn");
 const homeBtn = document.getElementById("admin-home-btn");
+const filterAllBtn = document.getElementById("filter-all");
+const filterApprovedBtn = document.getElementById("filter-approved");
+const filterPendingBtn = document.getElementById("filter-pending");
 const deleteModal = document.getElementById("delete-modal");
 const deleteModalBody = document.getElementById("delete-modal-body");
 const deleteConfirmBtn = document.getElementById("delete-confirm-btn");
@@ -16,6 +19,7 @@ let allUsers = [];
 let currentSearch = "";
 let pendingDeleteUserId = null;
 let pendingAction = null;
+let currentFilter = "all";
 
 async function apiRequest(path, options = {}) {
     return sharedApiRequest(path, options, {
@@ -54,6 +58,8 @@ function renderUsers() {
 
     const term = currentSearch.trim().toLowerCase();
     const filtered = allUsers.filter((user) => {
+        if (currentFilter === "approved" && !user.isApproved) return false;
+        if (currentFilter === "pending" && user.isApproved) return false;
         if (!term) return true;
         const name = (user.userName || "").toLowerCase();
         const email = (user.emailAddress || "").toLowerCase();
@@ -101,15 +107,19 @@ function renderUserCard(user) {
     roleBadge.className = `role-badge ${user.role}`;
     roleBadge.textContent = user.role === "admin" ? "Admin" : "User";
 
+    main.appendChild(nameEl);
+    main.appendChild(emailEl);
+    const badgeRow = document.createElement("div");
+    badgeRow.className = "badge-row";
+
     const statusBadge = document.createElement("span");
     statusBadge.className = `status-badge ${user.isApproved ? "approved" : "pending"}`;
     statusBadge.textContent = user.isApproved ? "Approved" : "Pending";
 
-    main.appendChild(nameEl);
-    main.appendChild(emailEl);
+    badgeRow.appendChild(roleBadge);
+    badgeRow.appendChild(statusBadge);
     headerRow.appendChild(main);
-    headerRow.appendChild(roleBadge);
-    headerRow.appendChild(statusBadge);
+    headerRow.appendChild(badgeRow);
 
     const actions = document.createElement("div");
     actions.className = "actions";
@@ -297,6 +307,20 @@ document.addEventListener("DOMContentLoaded", () => {
             window.location.href = "Home.html";
         });
     }
+    const setFilter = (filter) => {
+        currentFilter = filter;
+        if (filterAllBtn) filterAllBtn.classList.toggle("active", filter === "all");
+        if (filterApprovedBtn)
+            filterApprovedBtn.classList.toggle("active", filter === "approved");
+        if (filterPendingBtn)
+            filterPendingBtn.classList.toggle("active", filter === "pending");
+        renderUsers();
+    };
+    if (filterAllBtn) filterAllBtn.addEventListener("click", () => setFilter("all"));
+    if (filterApprovedBtn)
+        filterApprovedBtn.addEventListener("click", () => setFilter("approved"));
+    if (filterPendingBtn)
+        filterPendingBtn.addEventListener("click", () => setFilter("pending"));
     if (deleteConfirmBtn) {
         deleteConfirmBtn.addEventListener("click", () => {
             if (pendingAction) {

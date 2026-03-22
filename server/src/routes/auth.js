@@ -2,9 +2,10 @@ const bcrypt = require("bcryptjs");
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
-const nodemailer = require("nodemailer");
 const User = require("../models/User");
 const mongoose = require("mongoose");
+const PendingSignup = require("../models/PendingSignup");
+const PendingPasswordReset = require("../models/PendingPasswordReset");
 const { sendError, sendOk, sendCreated } = require("../utils/http");
 const {
   normalizeEmail,
@@ -12,12 +13,8 @@ const {
   isSixDigitCode,
   isStrongPassword,
 } = require("../utils/validation");
-const {
-  generateOtpCode,
-  hashOtp,
-  otpExpiresMs,
-  buildOtpEmailContent,
-} = require("../utils/otp");
+const { generateOtpCode, hashOtp, otpExpiresMs } = require("../utils/otp");
+const { sendOtpEmail } = require("../utils/mailer");
 const {
   setAuthCookie,
   clearAuthCookie,
@@ -27,10 +24,7 @@ const {
 const router = express.Router();
 
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
-const pendingSignups = new Map();
-const pendingPasswordResets = new Map();
 const otpRequestInFlight = new Set();
-let mailTransporter = null;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -52,33 +46,6 @@ function buildToken(user) {
   );
 }
 
-function getTransporter() {
-  if (mailTransporter) return mailTransporter;
-
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-
-  if (!user || !pass) {
-    throw new Error("GMAIL_USER or GMAIL_APP_PASSWORD is not configured");
-  }
-
-  mailTransporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass },
-  });
-
-  return mailTransporter;
-}
-
-async function sendOtpEmail(toEmail, code, purpose) {
-  const transporter = getTransporter();
-  const content = buildOtpEmailContent(code, purpose);
-  await transporter.sendMail({
-    from: process.env.GMAIL_USER,
-    to: toEmail,
-    ...content,
-  });
-}
 
 function duplicateErrorResponse(error, res) {
   const duplicateField =
@@ -140,6 +107,24 @@ function uploadStudentIdToGridFS(file) {
   });
 }
 
+async function cleanupPendingSignup(pending) {
+  if (!pending) return;
+  const fileId = pending?.validIdImage?.fileId;
+  if (fileId && mongoose.connection?.db && mongoose.Types.ObjectId.isValid(fileId)) {
+    try {
+      const bucket = getStudentIdBucket();
+      await bucket.delete(new mongoose.Types.ObjectId(fileId));
+    } catch (_error) {
+      // Ignore cleanup failures.
+    }
+  }
+  try {
+    await PendingSignup.deleteOne({ emailAddress: pending.emailAddress });
+  } catch (_error) {
+    // Ignore cleanup failures.
+  }
+}
+
 router.post("/signup/request-code", signupIdUpload, async (req, res) => {
   try {
     const { userName, emailAddress, password, confirmPassword } = req.body;
@@ -169,10 +154,16 @@ router.post("/signup/request-code", signupIdUpload, async (req, res) => {
       return sendError(res, 409, "Username already taken");
     }
 
-    const existingPending = pendingSignups.get(normalizedEmail);
+    const existingPending = await PendingSignup.findOne({
+      emailAddress: normalizedEmail,
+    });
     const now = Date.now();
-    if (existingPending && now < existingPending.resendAvailableAt) {
-      const waitSeconds = Math.ceil((existingPending.resendAvailableAt - now) / 1000);
+    if (existingPending && now > existingPending.expiresAt.getTime()) {
+      await cleanupPendingSignup(existingPending);
+    } else if (existingPending && now < existingPending.resendAvailableAt.getTime()) {
+      const waitSeconds = Math.ceil(
+        (existingPending.resendAvailableAt.getTime() - now) / 1000
+      );
       return sendError(
         res,
         429,
@@ -180,25 +171,33 @@ router.post("/signup/request-code", signupIdUpload, async (req, res) => {
       );
     }
 
+    if (existingPending && now <= existingPending.expiresAt.getTime()) {
+      await cleanupPendingSignup(existingPending);
+    }
+
     const fileId = await uploadStudentIdToGridFS(req.file);
     const code = generateOtpCode();
     const passwordHash = await bcrypt.hash(password, 10);
 
-    pendingSignups.set(normalizedEmail, {
-      userName: trimmedUserName,
-      emailAddress: normalizedEmail,
-      passwordHash,
-      validIdImage: {
-        fileId,
-        filename: req.file.originalname || "student-id",
-        mime: req.file.mimetype,
-        originalName: req.file.originalname,
-        uploadedAt: new Date(),
+    await PendingSignup.findOneAndUpdate(
+      { emailAddress: normalizedEmail },
+      {
+        userName: trimmedUserName,
+        emailAddress: normalizedEmail,
+        passwordHash,
+        validIdImage: {
+          fileId,
+          filename: req.file.originalname || "student-id",
+          mime: req.file.mimetype,
+          originalName: req.file.originalname,
+          uploadedAt: new Date(),
+        },
+        codeHash: hashOtp(code),
+        expiresAt: new Date(now + otpExpiresMs()),
+        resendAvailableAt: new Date(now + OTP_RESEND_COOLDOWN_MS),
       },
-      codeHash: hashOtp(code),
-      expiresAt: now + otpExpiresMs(),
-      resendAvailableAt: now + OTP_RESEND_COOLDOWN_MS,
-    });
+      { upsert: true, new: true }
+    );
 
     await sendOtpEmail(normalizedEmail, code, "verification");
     return sendOk(res, { message: "Verification code sent to email" });
@@ -214,22 +213,27 @@ router.post("/signup/resend-code", async (req, res) => {
       return sendError(res, 400, "Email is required");
     }
 
-    const pending = pendingSignups.get(normalizedEmail);
+    const pending = await PendingSignup.findOne({ emailAddress: normalizedEmail });
     if (!pending) {
       return sendError(res, 404, "No pending signup found for this email");
     }
 
     const now = Date.now();
-    if (now < pending.resendAvailableAt) {
-      const waitSeconds = Math.ceil((pending.resendAvailableAt - now) / 1000);
+    if (now > pending.expiresAt.getTime()) {
+      await cleanupPendingSignup(pending);
+      return sendError(res, 400, "Verification code has expired. Request a new code.");
+    }
+
+    if (now < pending.resendAvailableAt.getTime()) {
+      const waitSeconds = Math.ceil((pending.resendAvailableAt.getTime() - now) / 1000);
       return sendError(res, 429, `Please wait ${waitSeconds}s before resending`);
     }
 
     const code = generateOtpCode();
     pending.codeHash = hashOtp(code);
-    pending.expiresAt = now + otpExpiresMs();
-    pending.resendAvailableAt = now + OTP_RESEND_COOLDOWN_MS;
-    pendingSignups.set(normalizedEmail, pending);
+    pending.expiresAt = new Date(now + otpExpiresMs());
+    pending.resendAvailableAt = new Date(now + OTP_RESEND_COOLDOWN_MS);
+    await pending.save();
 
     await sendOtpEmail(normalizedEmail, code, "verification");
     return sendOk(res, { message: "Verification code resent" });
@@ -251,13 +255,13 @@ router.post("/signup/verify-code", async (req, res) => {
       return sendError(res, 400, "Verification code must be a 6-digit number");
     }
 
-    const pending = pendingSignups.get(normalizedEmail);
+    const pending = await PendingSignup.findOne({ emailAddress: normalizedEmail });
     if (!pending) {
       return sendError(res, 404, "No pending signup found for this email");
     }
 
-    if (Date.now() > pending.expiresAt) {
-      pendingSignups.delete(normalizedEmail);
+    if (Date.now() > pending.expiresAt.getTime()) {
+      await cleanupPendingSignup(pending);
       return sendError(res, 400, "Verification code has expired. Request a new code.");
     }
 
@@ -267,13 +271,13 @@ router.post("/signup/verify-code", async (req, res) => {
 
     const existingUser = await User.findOne({ emailAddress: normalizedEmail });
     if (existingUser) {
-      pendingSignups.delete(normalizedEmail);
+      await cleanupPendingSignup(pending);
       return sendError(res, 409, "Email already registered");
     }
 
     const existingUserName = await User.findOne({ userName: pending.userName });
     if (existingUserName) {
-      pendingSignups.delete(normalizedEmail);
+      await cleanupPendingSignup(pending);
       return sendError(res, 409, "Username already taken");
     }
 
@@ -286,7 +290,7 @@ router.post("/signup/verify-code", async (req, res) => {
       validIdImage: pending.validIdImage,
     });
 
-    pendingSignups.delete(normalizedEmail);
+    await PendingSignup.deleteOne({ emailAddress: normalizedEmail });
     return sendCreated(res, {
       message: "Account created. Awaiting admin approval.",
       user: user.toJSON(),
@@ -318,10 +322,14 @@ router.post("/password/request-code", async (req, res) => {
       return sendError(res, 404, "No account found for that email");
     }
 
-    const existing = pendingPasswordResets.get(normalizedEmail);
+    const existing = await PendingPasswordReset.findOne({
+      emailAddress: normalizedEmail,
+    });
     const now = Date.now();
-    if (existing && now < existing.resendAvailableAt) {
-      const waitSeconds = Math.ceil((existing.resendAvailableAt - now) / 1000);
+    if (existing && now < existing.resendAvailableAt.getTime()) {
+      const waitSeconds = Math.ceil(
+        (existing.resendAvailableAt.getTime() - now) / 1000
+      );
       return sendError(
         res,
         429,
@@ -330,13 +338,17 @@ router.post("/password/request-code", async (req, res) => {
     }
 
     const code = generateOtpCode();
-    pendingPasswordResets.set(normalizedEmail, {
-      userId: user._id.toString(),
-      emailAddress: normalizedEmail,
-      codeHash: hashOtp(code),
-      expiresAt: now + otpExpiresMs(),
-      resendAvailableAt: now + OTP_RESEND_COOLDOWN_MS,
-    });
+    await PendingPasswordReset.findOneAndUpdate(
+      { emailAddress: normalizedEmail },
+      {
+        userId: user._id,
+        emailAddress: normalizedEmail,
+        codeHash: hashOtp(code),
+        expiresAt: new Date(now + otpExpiresMs()),
+        resendAvailableAt: new Date(now + OTP_RESEND_COOLDOWN_MS),
+      },
+      { upsert: true, new: true }
+    );
 
     await sendOtpEmail(normalizedEmail, code, "password-reset");
     return sendOk(res, { message: "Password reset code sent to email" });
@@ -354,22 +366,24 @@ router.post("/password/resend-code", async (req, res) => {
       return sendError(res, 400, "Email is required");
     }
 
-    const pending = pendingPasswordResets.get(normalizedEmail);
+    const pending = await PendingPasswordReset.findOne({
+      emailAddress: normalizedEmail,
+    });
     if (!pending) {
       return sendError(res, 404, "No pending reset found for this email");
     }
 
     const now = Date.now();
-    if (now < pending.resendAvailableAt) {
-      const waitSeconds = Math.ceil((pending.resendAvailableAt - now) / 1000);
+    if (now < pending.resendAvailableAt.getTime()) {
+      const waitSeconds = Math.ceil((pending.resendAvailableAt.getTime() - now) / 1000);
       return sendError(res, 429, `Please wait ${waitSeconds}s before resending`);
     }
 
     const code = generateOtpCode();
     pending.codeHash = hashOtp(code);
-    pending.expiresAt = now + otpExpiresMs();
-    pending.resendAvailableAt = now + OTP_RESEND_COOLDOWN_MS;
-    pendingPasswordResets.set(normalizedEmail, pending);
+    pending.expiresAt = new Date(now + otpExpiresMs());
+    pending.resendAvailableAt = new Date(now + OTP_RESEND_COOLDOWN_MS);
+    await pending.save();
 
     await sendOtpEmail(normalizedEmail, code, "password-reset");
     return sendOk(res, { message: "Password reset code resent" });
@@ -401,13 +415,15 @@ router.post("/password/reset", async (req, res) => {
       return sendError(res, 400, "Verification code must be a 6-digit number");
     }
 
-    const pending = pendingPasswordResets.get(normalizedEmail);
+    const pending = await PendingPasswordReset.findOne({
+      emailAddress: normalizedEmail,
+    });
     if (!pending) {
       return sendError(res, 404, "No pending reset found for this email");
     }
 
-    if (Date.now() > pending.expiresAt) {
-      pendingPasswordResets.delete(normalizedEmail);
+    if (Date.now() > pending.expiresAt.getTime()) {
+      await PendingPasswordReset.deleteOne({ emailAddress: normalizedEmail });
       return sendError(res, 400, "Verification code has expired. Request a new code.");
     }
 
@@ -417,14 +433,14 @@ router.post("/password/reset", async (req, res) => {
 
     const user = await User.findOne({ emailAddress: normalizedEmail });
     if (!user) {
-      pendingPasswordResets.delete(normalizedEmail);
+      await PendingPasswordReset.deleteOne({ emailAddress: normalizedEmail });
       return sendError(res, 404, "No account found for that email");
     }
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();
 
-    pendingPasswordResets.delete(normalizedEmail);
+    await PendingPasswordReset.deleteOne({ emailAddress: normalizedEmail });
     return sendOk(res, { message: "Password updated successfully" });
   } catch (_error) {
     return sendError(res, 500, "Unable to reset password");

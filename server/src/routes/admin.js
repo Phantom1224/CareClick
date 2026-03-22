@@ -5,6 +5,7 @@ const User = require("../models/User");
 const { sendError, sendOk } = require("../utils/http");
 const { isValidObjectId } = require("../utils/validation");
 const mongoose = require("mongoose");
+const { sendApprovalEmail } = require("../utils/mailer");
 
 const router = express.Router();
 
@@ -73,14 +74,21 @@ router.patch("/users/:userId/approve", requireAuth, requireAdmin, async (req, re
       return sendError(res, 400, "Invalid user id");
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { isApproved: true },
-      { new: true }
-    );
+    const user = await User.findById(userId);
 
     if (!user) {
       return sendError(res, 404, "User not found");
+    }
+
+    if (!user.isApproved) {
+      user.isApproved = true;
+      await user.save();
+
+      try {
+        await sendApprovalEmail(user);
+      } catch (error) {
+        console.warn("Approval email failed:", error.message);
+      }
     }
 
     return sendOk(res, {

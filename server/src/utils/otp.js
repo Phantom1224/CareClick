@@ -37,7 +37,17 @@ function buildOtpEmailContent(code, purpose) {
       ? "Your CareClick Password Reset Code"
       : "Your CareClick Verification Code",
     text: `Your CareClick ${label} code is ${code}. It expires in ${minutes} minutes.`,
-    html: `<p>Your CareClick ${label} code is <strong>${code}</strong>.</p><p>It expires in ${minutes} minutes.</p>`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #1f2937;">
+        <p>Your CareClick ${label} code is:</p>
+        <div style="text-align: center; margin: 16px 0;">
+          <span style="display: inline-block; font-size: 32px; font-weight: 700; letter-spacing: 6px;">
+            ${code}
+          </span>
+        </div>
+        <p>It expires in ${minutes} minutes.</p>
+      </div>
+    `,
   };
 }
 

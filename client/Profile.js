@@ -24,6 +24,9 @@ const conversationCache = new Map();
 let allUsers = [];
 let groupAddSearchTerm = "";
 let groupAddExistingIds = new Set();
+let groupAddSelectedIds = new Set();
+let groupCreateSearchTerm = "";
+let groupCreateSelectedIds = new Set();
 let searchTerm = "";
 let activeMessageIds = new Set();
 let sendInFlight = false;
@@ -702,14 +705,24 @@ function renderGroupUserList() {
     listEl.innerHTML = "";
 
     const searchInput = document.getElementById("group-user-search");
-    const term = searchInput?.value?.trim().toLowerCase() || "";
-    const users = term
-        ? allUsers.filter((user) => {
-              const name = (user.userName || "").toLowerCase();
-              const email = (user.emailAddress || "").toLowerCase();
-              return name.includes(term) || email.includes(term);
-          })
-        : allUsers;
+    const term = groupCreateSearchTerm.trim().toLowerCase();
+    if (searchInput) {
+        searchInput.value = groupCreateSearchTerm;
+    }
+
+    const selectedUsers = allUsers.filter((user) =>
+        groupCreateSelectedIds.has(String(user._id))
+    );
+
+    const filtered = allUsers.filter((user) => {
+        if (groupCreateSelectedIds.has(String(user._id))) return false;
+        if (!term) return true;
+        const name = (user.userName || "").toLowerCase();
+        const email = (user.emailAddress || "").toLowerCase();
+        return name.includes(term) || email.includes(term);
+    });
+
+    const users = [...selectedUsers, ...filtered];
 
     users.forEach((user) => {
         const row = document.createElement("div");
@@ -719,6 +732,16 @@ function renderGroupUserList() {
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.value = user._id;
+        checkbox.checked = groupCreateSelectedIds.has(String(user._id));
+        checkbox.addEventListener("change", () => {
+            const key = String(user._id);
+            if (checkbox.checked) {
+                groupCreateSelectedIds.add(key);
+            } else {
+                groupCreateSelectedIds.delete(key);
+            }
+            renderGroupUserList();
+        });
 
         const text = document.createElement("span");
         text.className = "group-user-text";
@@ -747,7 +770,9 @@ function openGroupModal() {
     const nameError = document.getElementById("group-name-error");
     if (nameError) nameError.classList.add("hidden");
     const searchInput = document.getElementById("group-user-search");
-    if (searchInput) searchInput.value = "";
+    groupCreateSearchTerm = "";
+    groupCreateSelectedIds = new Set();
+    if (searchInput) searchInput.value = groupCreateSearchTerm;
     renderGroupUserList();
     modal.classList.remove("hidden");
 }
@@ -760,6 +785,8 @@ function closeGroupModal() {
     if (nameInput) nameInput.value = "";
     const nameError = document.getElementById("group-name-error");
     if (nameError) nameError.classList.add("hidden");
+    groupCreateSearchTerm = "";
+    groupCreateSelectedIds = new Set();
 }
 
 async function createGroupChat() {
@@ -769,8 +796,7 @@ async function createGroupChat() {
     if (!nameInput || !listEl) return;
 
     const name = nameInput.value.trim();
-    const checked = Array.from(listEl.querySelectorAll("input[type='checkbox']:checked"))
-        .map((input) => input.value);
+    const checked = Array.from(groupCreateSelectedIds);
 
     if (!name) {
         const nameError = document.getElementById("group-name-error");
@@ -796,6 +822,7 @@ async function createGroupChat() {
             openChatByConversationId(conversation._id);
         }
         closeGroupModal();
+        groupCreateSelectedIds = new Set();
     } catch (error) {
         alert(error.message || "Unable to create group");
     } finally {
@@ -856,13 +883,21 @@ function renderAddMembersList(members = [], existingIds = new Set()) {
     listEl.innerHTML = "";
 
     const term = groupAddSearchTerm.trim().toLowerCase();
-    const candidates = members.filter((user) => {
-        if (existingIds.has(String(user._id))) return false;
+    const eligible = members.filter((user) => !existingIds.has(String(user._id)));
+
+    const selectedUsers = eligible.filter((user) =>
+        groupAddSelectedIds.has(String(user._id))
+    );
+
+    const filtered = eligible.filter((user) => {
+        if (groupAddSelectedIds.has(String(user._id))) return false;
         if (!term) return true;
         const name = (user.userName || "").toLowerCase();
         const email = (user.emailAddress || "").toLowerCase();
         return name.includes(term) || email.includes(term);
     });
+
+    const candidates = [...selectedUsers, ...filtered];
     if (!candidates.length) {
         const empty = document.createElement("div");
         empty.className = "group-add-empty";
@@ -879,6 +914,16 @@ function renderAddMembersList(members = [], existingIds = new Set()) {
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.value = user._id;
+        checkbox.checked = groupAddSelectedIds.has(String(user._id));
+        checkbox.addEventListener("change", () => {
+            const key = String(user._id);
+            if (checkbox.checked) {
+                groupAddSelectedIds.add(key);
+            } else {
+                groupAddSelectedIds.delete(key);
+            }
+            renderAddMembersList(members, existingIds);
+        });
 
         const text = document.createElement("span");
         text.className = "group-user-text";
@@ -1004,6 +1049,7 @@ async function openGroupAddModal() {
                 (conversation.participants || []).map((member) => String(member._id))
             );
             groupAddExistingIds = existingIds;
+            groupAddSelectedIds = new Set();
             if (searchInput) searchInput.value = groupAddSearchTerm;
             renderAddMembersList(allUsers, existingIds);
         }
@@ -1036,6 +1082,7 @@ async function addGroupMembers() {
         if (data?.conversation) {
             applyConversationUpdate({ ...activeConversation, ...data.conversation });
         }
+        groupAddSelectedIds = new Set();
         closeGroupAddModal();
     } catch (error) {
         console.error("Failed to add members:", error.message);
@@ -1354,6 +1401,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (groupUserSearch) {
         groupUserSearch.addEventListener("input", () => {
+            groupCreateSearchTerm = groupUserSearch.value || "";
             renderGroupUserList();
         });
     }

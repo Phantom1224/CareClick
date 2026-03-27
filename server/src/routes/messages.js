@@ -541,12 +541,31 @@ router.post("/conversations/group", requireAuth, async (req, res) => {
       return sendError(res, 400, "Group must have at least 3 participants");
     }
 
-    const conversation = await Conversation.create({
-      isGroup: true,
-      name,
-      createdBy: userId,
-      participants: uniqueIds,
-    });
+    let conversation = null;
+    try {
+      conversation = await Conversation.create({
+        isGroup: true,
+        name,
+        createdBy: userId,
+        participants: uniqueIds,
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        // Clean up any legacy participantsKey on group chats and retry once.
+        await Conversation.updateMany(
+          { isGroup: true },
+          { $unset: { participantsKey: "" } }
+        );
+        conversation = await Conversation.create({
+          isGroup: true,
+          name,
+          createdBy: userId,
+          participants: uniqueIds,
+        });
+      } else {
+        throw error;
+      }
+    }
 
     return sendCreated(res, {
       conversation: {
